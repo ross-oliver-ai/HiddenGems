@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useState } from "react";
 import {
   Bar,
   BarChart,
@@ -139,13 +141,43 @@ export function ChartCard({
 
 type SeriesPoint = { key: string; label: string; full: string; spent: number; revenue: number; profit: number };
 
+export type Drill = "month" | "week" | null;
+
+function useDrill(data: { key: string }[], drill: Drill) {
+  const [sel, setSel] = useState<number | null>(null);
+  const onClick = drill
+    ? (state: unknown) => {
+        const i = Number((state as { activeTooltipIndex?: number | string | null } | undefined)?.activeTooltipIndex);
+        setSel(Number.isInteger(i) && i >= 0 && i < data.length ? i : null);
+      }
+    : undefined;
+  return { sel, onClick };
+}
+
+/** Under a chart: tap a bar to select it, then open that month or week in its own report. */
+function DrillBar({ data, drill, sel }: { data: SeriesPoint[]; drill: Drill; sel: number | null }) {
+  if (!drill) return null;
+  if (sel === null || !data[sel]) {
+    return <p className="text-center text-xs font-semibold text-muted">Tap a bar to open that {drill}</p>;
+  }
+  const b = data[sel];
+  const href = drill === "month" ? `/reports?p=month&at=${b.key}-01` : `/reports?p=week&at=${b.key}`;
+  return (
+    <Link href={href} className="btn-soft w-full">
+      Open {b.full.replace("Week of ", "week of ")} →
+    </Link>
+  );
+}
+
 // With few, short labels show them all; otherwise let Recharts thin them out
 const xInterval = (data: SeriesPoint[]) => (data.length <= 12 && data.every((d) => d.label.length <= 5) ? 0 : "preserveStartEnd");
 
-export function ProfitChart({ data }: { data: SeriesPoint[] }) {
+export function ProfitChart({ data, drill = null }: { data: SeriesPoint[]; drill?: Drill }) {
+  const { sel, onClick } = useDrill(data, drill);
   return (
+    <>
     <ChartBox height={220} label="Profit over time">
-      <BarChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barCategoryGap="20%">
+      <BarChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barCategoryGap="20%" onClick={onClick} style={drill ? { cursor: "pointer" } : undefined}>
         <CartesianGrid vertical={false} stroke={GRID} />
         <XAxis dataKey="label" tick={axisText} tickLine={false} axisLine={{ stroke: GRID }} interval={xInterval(data)} minTickGap={14} />
         <YAxis tick={axisText} tickLine={false} axisLine={false} tickFormatter={tick} width={44} />
@@ -163,13 +195,17 @@ export function ProfitChart({ data }: { data: SeriesPoint[] }) {
         </Bar>
       </BarChart>
     </ChartBox>
+    <DrillBar data={data} drill={drill} sel={sel} />
+    </>
   );
 }
 
-export function SpentRevenueChart({ data }: { data: SeriesPoint[] }) {
+export function SpentRevenueChart({ data, drill = null }: { data: SeriesPoint[]; drill?: Drill }) {
+  const { sel, onClick } = useDrill(data, drill);
   return (
+    <>
     <ChartBox height={220} label="Spent compared with revenue over time">
-      <BarChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barCategoryGap="20%" barGap={2}>
+      <BarChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barCategoryGap="20%" barGap={2} onClick={onClick} style={drill ? { cursor: "pointer" } : undefined}>
         <CartesianGrid vertical={false} stroke={GRID} />
         <XAxis dataKey="label" tick={axisText} tickLine={false} axisLine={{ stroke: GRID }} interval={xInterval(data)} minTickGap={14} />
         <YAxis tick={axisText} tickLine={false} axisLine={false} tickFormatter={tick} width={44} />
@@ -190,6 +226,8 @@ export function SpentRevenueChart({ data }: { data: SeriesPoint[] }) {
         <Bar dataKey="revenue" fill={PRIMARY} maxBarSize={12} shape={(p: ShapeProps) => <RoundedBar {...p} />} />
       </BarChart>
     </ChartBox>
+    <DrillBar data={data} drill={drill} sel={sel} />
+    </>
   );
 }
 

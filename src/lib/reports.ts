@@ -24,6 +24,7 @@ export type Ranked = { name: string; value: number; items: number; spent?: numbe
 
 export type Report = {
   period: Period;
+  earliest: string | null;
   kpi: {
     spent: number;
     boughtCount: number;
@@ -182,6 +183,7 @@ export async function computeReport(user: User, input: PeriodInput): Promise<Rep
 
   return {
     period,
+    earliest,
     kpi: {
       spent: r2(spent),
       boughtCount: bought.length,
