@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth";
 import { daysBetween, money } from "@/lib/format";
 import { FILTERS, isStale, itemProfit } from "@/lib/items";
 import { StatusPill } from "@/components/StatusPill";
+import { SearchBox } from "@/components/SearchBox";
 
 type Params = { f?: string; q?: string };
 
@@ -37,10 +38,7 @@ export default async function ItemsPage({ searchParams }: { searchParams: Promis
     <div className="space-y-4">
       <h1 className="text-2xl font-extrabold tracking-tight">Items</h1>
 
-      <form action="/items" className="flex gap-2">
-        <input type="hidden" name="f" value={filter.id} />
-        <input name="q" defaultValue={term} type="search" placeholder="Search name, brand or shop" className="field" autoComplete="off" />
-      </form>
+      <SearchBox initial={term} filter={filter.id} />
 
       <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
         {FILTERS.map((x) => (
