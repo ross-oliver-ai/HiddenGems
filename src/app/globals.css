@@ -1,0 +1,122 @@
+@import "tailwindcss";
+
+/* ---------- Theme tokens ----------
+   Each theme sets a light primary (--p), a dark-mode primary (--p-dk) and soft tints.
+   Light/dark base colours are shared by all themes. */
+
+html[data-theme="blossom"]  { --p:#d9638b; --p-soft:#fce8ef; --p-dk:#f08fae; --p-soft-dk:#3b2230; --a:#f6a5c0; --bg:#fff8fa; --bg-dk:#1c1418; }
+html[data-theme="sage"]     { --p:#5f8f6b; --p-soft:#e6f2e8; --p-dk:#8cc19a; --p-soft-dk:#1f3025; --a:#a8cdb0; --bg:#f8fbf8; --bg-dk:#141a16; }
+html[data-theme="lavender"] { --p:#8068c9; --p-soft:#eee9fb; --p-dk:#ac98ee; --p-soft-dk:#2a2340; --a:#b9a7ee; --bg:#faf8ff; --bg-dk:#17151f; }
+html[data-theme="apricot"]  { --p:#e07b39; --p-soft:#fdeee0; --p-dk:#f29d62; --p-soft-dk:#3a2718; --a:#f5b98a; --bg:#fffaf5; --bg-dk:#1d1712; }
+html[data-theme="ocean"]    { --p:#2f7fb8; --p-soft:#e4f1fa; --p-dk:#69b0e0; --p-soft-dk:#18303f; --a:#8cc4e8; --bg:#f7fbfe; --bg-dk:#121a20; }
+html[data-theme="berry"]    { --p:#a3306b; --p-soft:#f9e4ef; --p-dk:#df7fb0; --p-soft-dk:#3a1b2c; --a:#d98ab5; --bg:#fff8fb; --bg-dk:#1d1218; }
+
+:root {
+  color-scheme: light;
+  --background: var(--bg, #fff8fa);
+  --surface: #ffffff;
+  --surface-2: color-mix(in srgb, var(--bg, #fff8fa) 70%, #000 4%);
+  --foreground: #2b2326;
+  --muted: #7a6d72;
+  --border: color-mix(in srgb, var(--p, #d9638b) 14%, #e8e2e4);
+  --primary: var(--p, #d9638b);
+  --primary-soft: var(--p-soft, #fce8ef);
+  --primary-contrast: #ffffff;
+  --accent: var(--a, #f6a5c0);
+  --success: #2e9e6a;
+  --danger: #d6455d;
+  --warning: #d98a1c;
+}
+
+/* dark: explicit */
+html[data-mode="dark"] {
+  color-scheme: dark;
+  --background: var(--bg-dk, #1c1418);
+  --surface: color-mix(in srgb, var(--bg-dk, #1c1418) 88%, #fff 12%);
+  --surface-2: color-mix(in srgb, var(--bg-dk, #1c1418) 94%, #fff 6%);
+  --foreground: #f3ecee;
+  --muted: #b3a6ab;
+  --border: color-mix(in srgb, var(--p-dk, #f08fae) 18%, #3a3236);
+  --primary: var(--p-dk, #f08fae);
+  --primary-soft: var(--p-soft-dk, #3b2230);
+  --primary-contrast: #1b1316;
+  --success: #52c58d;
+  --danger: #f0768b;
+  --warning: #f0b255;
+}
+
+/* dark: follow the phone setting */
+@media (prefers-color-scheme: dark) {
+  html[data-mode="system"] {
+    color-scheme: dark;
+    --background: var(--bg-dk, #1c1418);
+    --surface: color-mix(in srgb, var(--bg-dk, #1c1418) 88%, #fff 12%);
+    --surface-2: color-mix(in srgb, var(--bg-dk, #1c1418) 94%, #fff 6%);
+    --foreground: #f3ecee;
+    --muted: #b3a6ab;
+    --border: color-mix(in srgb, var(--p-dk, #f08fae) 18%, #3a3236);
+    --primary: var(--p-dk, #f08fae);
+    --primary-soft: var(--p-soft-dk, #3b2230);
+    --primary-contrast: #1b1316;
+    --success: #52c58d;
+    --danger: #f0768b;
+    --warning: #f0b255;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-contrast: var(--primary-contrast);
+  --color-accent: var(--accent);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --font-sans: ui-rounded, "SF Pro Rounded", "Nunito", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  min-height: 100dvh;
+}
+
+/* Inputs: 16px+ stops iOS zooming in on focus */
+input, select, textarea { font-size: 16px; }
+
+@layer components {
+  .card {
+    @apply rounded-3xl border border-border bg-surface p-4 shadow-[0_1px_2px_rgb(0_0_0/0.03)];
+  }
+  .field {
+    @apply w-full rounded-2xl border border-border bg-surface-2 px-4 py-3 outline-none transition
+      placeholder:text-muted/70 focus:border-primary focus:ring-4 focus:ring-primary/15;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-semibold text-muted;
+  }
+  .btn {
+    @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-primary px-5 font-bold
+      text-primary-contrast transition active:scale-[0.98] disabled:opacity-60;
+  }
+  .btn-soft {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-primary-soft px-4 font-bold
+      text-primary transition active:scale-[0.98] disabled:opacity-60;
+  }
+  .btn-danger {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-danger/40 px-4
+      font-bold text-danger transition active:scale-[0.98] disabled:opacity-60;
+  }
+}
