@@ -26,6 +26,9 @@ html[data-theme="berry"]    { --p:#a3306b; --p-soft:#f9e4ef; --p-dk:#df7fb0; --p
   --success: #2e9e6a;
   --danger: #d6455d;
   --warning: #d98a1c;
+  /* charts: one-step-off-surface greys so grid and context marks recede */
+  --chart-grid: color-mix(in srgb, var(--foreground) 9%, var(--surface));
+  --chart-muted: color-mix(in srgb, var(--foreground) 28%, var(--surface));
 }
 
 /* dark: explicit */
