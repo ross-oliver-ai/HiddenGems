@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
   // The setup page runs the SQL migrations, so make sure they ship with the serverless function
   outputFileTracingIncludes: {
     "/setup": ["./drizzle/**/*"],
+    // The admin "Update database" button runs them too
+    "/settings": ["./drizzle/**/*"],
   },
   experimental: {
     serverActions: { bodySizeLimit: "6mb" },

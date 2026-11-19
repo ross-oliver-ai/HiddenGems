@@ -2,6 +2,8 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { THEMES, COLOR_MODES } from "@/lib/themes";
 import { ChangePasswordForm } from "@/components/ChangePasswordForm";
+import { UpdateDatabase } from "@/components/UpdateDatabase";
+import { pendingMigrations } from "@/lib/migrations";
 import { updateAppearanceAction, logoutAction } from "./actions";
 
 const MODE_LABEL: Record<(typeof COLOR_MODES)[number], string> = {
@@ -70,10 +72,20 @@ export default async function SettingsPage() {
       </Link>
 
       {user.role === "admin" && (
-        <Link href="/admin/users" className="card flex items-center justify-between font-extrabold">
-          Manage users
-          <span aria-hidden className="text-primary">→</span>
-        </Link>
+        <>
+          <Link href="/admin/users" className="card flex items-center justify-between font-extrabold">
+            Manage users
+            <span aria-hidden className="text-primary">→</span>
+          </Link>
+          <Link href="/admin/waitlist" className="card flex items-center justify-between font-extrabold">
+            Waitlist
+            <span aria-hidden className="text-primary">→</span>
+          </Link>
+          <section className="card space-y-2">
+            <h2 className="font-extrabold">Database</h2>
+            <UpdateDatabase pending={await pendingMigrations()} />
+          </section>
+        </>
       )}
 
       <section className="card space-y-3">
