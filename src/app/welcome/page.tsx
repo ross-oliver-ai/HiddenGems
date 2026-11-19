@@ -6,10 +6,10 @@ import { WaitlistForm } from "./WaitlistForm";
 export const metadata: Metadata = {
   title: "Hidden Gems: know what you really make from reselling",
   description:
-    "Track everything you buy and sell, and see your spend, stock and profit in clear, beautiful reports. Built for resellers. Join the free beta.",
+    "Track everything you buy and sell, and see your spend, stock and profit in clear, beautiful reports. Built for resellers. Join the free trial.",
   openGraph: {
     title: "Hidden Gems: know what you really make from reselling",
-    description: "Track what you buy and sell, and see your profit at a glance. Join the free beta.",
+    description: "Track what you buy and sell, and see your profit at a glance. Join the free trial.",
     type: "website",
   },
 };
@@ -70,7 +70,7 @@ function PreviewCard() {
 export default function WelcomePage() {
   return (
     <div className="mx-auto w-full max-w-5xl px-5 pb-16">
-      <header className="flex items-center justify-between py-5">
+      <header className="flex items-center justify-between pb-5 pt-[calc(env(safe-area-inset-top)+2rem)]">
         <div className="flex items-center gap-2.5">
           <Logo size={36} />
           <span className="text-lg font-extrabold tracking-tight">Hidden Gems</span>
@@ -80,9 +80,9 @@ export default function WelcomePage() {
 
       <main>
         <section className="grid items-center gap-10 py-8 md:grid-cols-2 md:py-14">
-          <div className="space-y-5">
+          <div className="space-y-5 text-center md:text-left">
             <p className="inline-block rounded-full bg-primary-soft px-3.5 py-1.5 text-sm font-bold text-primary">
-              Free beta · invites going out soon
+              Free trial · invites going out soon
             </p>
             <h1 className="text-4xl font-extrabold leading-[1.08] tracking-tight md:text-5xl">
               Know what you <span className="text-primary">really</span> make from reselling.
@@ -90,7 +90,7 @@ export default function WelcomePage() {
             <p className="text-lg text-muted">
               Hidden Gems keeps track of everything you buy and sell, then turns it into clear, pretty reports, so you can see your spend, stock and profit at a glance.
             </p>
-            <div className="card max-w-md">
+            <div className="card mx-auto max-w-md text-left md:mx-0">
               <WaitlistForm id="join-top" />
             </div>
           </div>
@@ -126,7 +126,7 @@ export default function WelcomePage() {
         <section className="py-10" aria-labelledby="join-bottom-title">
           <div className="mx-auto max-w-md space-y-4 rounded-[2rem] bg-primary-soft p-6 text-center">
             <h2 id="join-bottom-title" className="text-2xl font-extrabold tracking-tight">Get an early invite</h2>
-            <p className="text-muted">The beta is free. Leave your email and we&apos;ll let you in as spots open up.</p>
+            <p className="text-muted">The trial is free. Leave your email and we&apos;ll let you in as spots open up.</p>
             <div className="card text-left">
               <WaitlistForm id="join-bottom" />
             </div>

@@ -40,7 +40,7 @@ export function WaitlistForm({ id = "join" }: { id?: string }) {
         />
       </div>
       {state.error && <p role="alert" className="rounded-xl bg-danger/10 px-3 py-2 text-sm font-semibold text-danger">{state.error}</p>}
-      <SubmitButton pendingText="Adding you…">Join the free beta</SubmitButton>
+      <SubmitButton pendingText="Adding you…">Start your free trial</SubmitButton>
       <p className="text-center text-xs text-muted">
         We&apos;ll only email you about getting access. See our <Link href="/privacy" className="font-bold underline">privacy notice</Link>.
       </p>
