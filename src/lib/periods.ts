@@ -34,6 +34,25 @@ const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "Ju
 export const dayLabel = (s: string) => `${Number(s.slice(8))} ${MONTHS[Number(s.slice(5, 7)) - 1]}`;
 const fullDay = (s: string) => `${dayLabel(s)} ${s.slice(0, 4)}`;
 
+/** A monthly goal scaled to a period: each calendar month counts for the share of its days the period covers. */
+export function prorateGoal(monthly: number, from: string, to: string): number {
+  if (!(from <= to)) return 0;
+  let total = 0;
+  let y = Number(from.slice(0, 4));
+  let m0 = Number(from.slice(5, 7)) - 1;
+  for (let guard = 0; guard < 2400; guard++) {
+    const ms = monthStart(y, m0);
+    const me = monthEnd(y, m0);
+    if (ms > to) break;
+    const a = from > ms ? from : ms;
+    const b = to < me ? to : me;
+    if (a <= b) total += (monthly * daysIn(a, b)) / daysIn(ms, me);
+    m0 += 1;
+    if (m0 > 11) { m0 = 0; y += 1; }
+  }
+  return Math.round(total * 100) / 100;
+}
+
 export type Period = {
   id: PeriodId;
   offset: number;

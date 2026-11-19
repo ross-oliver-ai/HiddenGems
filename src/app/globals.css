@@ -99,6 +99,19 @@ body {
 /* Inputs: 16px+ stops iOS zooming in on focus */
 input, select, textarea { font-size: 16px; }
 
+/* Stop form fields (especially iOS date pickers) stretching past their card */
+input, select, textarea { max-width: 100%; min-width: 0; }
+.grid > * { min-width: 0; }
+input[type="date"] {
+  display: block;
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 3rem;
+  text-align: left;
+}
+input[type="date"]::-webkit-date-and-time-value { text-align: left; min-height: 1.5em; }
+input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 0; }
+
 @layer components {
   .card {
     @apply rounded-3xl border border-border bg-surface p-4 shadow-[0_1px_2px_rgb(0_0_0/0.03)];

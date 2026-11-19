@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { createItemAction, updateItemAction, type ItemState } from "@/app/(app)/items/actions";
 import { SubmitButton } from "./SubmitButton";
 import { PhotoPicker } from "./PhotoPicker";
+import { ShopPicker } from "./ShopPicker";
 import { CONDITIONS } from "@/lib/items";
 
 export type ItemFormValues = {
@@ -68,8 +69,7 @@ export function ItemForm({
 
       <div>
         <label className="label" htmlFor="shop">Charity shop</label>
-        <input id="shop" name="shop" list="shop-list" defaultValue={values.shop} placeholder="Pick or type a new one" maxLength={60} className="field" autoComplete="off" />
-        <datalist id="shop-list">{shops.map((s) => <option key={s} value={s} />)}</datalist>
+        <ShopPicker shops={shops} defaultValue={values.shop} />
       </div>
 
       <div className="grid grid-cols-2 gap-3">

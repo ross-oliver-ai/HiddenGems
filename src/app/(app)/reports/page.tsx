@@ -49,7 +49,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const jumpM = /^(0[1-9]|1[0-2])$/.test(params.m ?? "") ? params.m : undefined;
   const at = params.at ?? (jumpY ? `${jumpY}-${jumpM ?? "06"}-01` : undefined);
   const r = await computeReport(user, { ...params, at });
-  const { period: per, kpi, stock, goal } = r;
+  const { period: per, kpi, stock, periodGoal: goal } = r;
 
   const link = (p: string, o = 0) => `/reports?p=${p}${o ? `&o=${o}` : ""}`;
   const noActivity = kpi.boughtCount === 0 && kpi.soldCount === 0 && kpi.writtenOff === 0;
@@ -63,6 +63,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const showMonthSelect = per.id === "month" || per.id === "quarter";
   const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
+  const isWholeMonth =
+    per.id === "month" || (per.from.slice(8) === "01" && per.from.slice(0, 7) === per.to.slice(0, 7) && per.to.slice(8) >= "28");
   const goalPct = goal && goal.target > 0 ? Math.max(0, Math.min(100, Math.round((goal.current / goal.target) * 100))) : 0;
 
   return (
@@ -164,15 +166,15 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       </section>
 
       {goal && (
-        <section className="card space-y-2" aria-label="Monthly goal progress">
+        <section className="card space-y-2" aria-label="Profit goal progress">
           <div className="flex items-baseline justify-between">
-            <h2 className="font-extrabold">This month&apos;s goal</h2>
+            <h2 className="font-extrabold">{isWholeMonth ? `${per.label} goal` : "Goal for this period"}</h2>
             <p className="text-sm font-bold">{signed(goal.current)} of {money(goal.target)}</p>
           </div>
           <div className="h-3 overflow-hidden rounded-full bg-primary-soft" role="progressbar" aria-valuenow={goalPct} aria-valuemin={0} aria-valuemax={100}>
             <div className="h-full rounded-full bg-primary" style={{ width: `${goalPct}%` }} />
           </div>
-          <p className="text-xs text-muted">{goalPct}% of your monthly profit goal (calendar month, whatever period is shown above).</p>
+          <p className="text-xs text-muted">{goalPct}% of {isWholeMonth ? `your ${money(goal.monthly)} monthly profit goal.` : `your profit goal for this period, which is your ${money(goal.monthly)} monthly goal scaled to the days shown.`}</p>
         </section>
       )}
 

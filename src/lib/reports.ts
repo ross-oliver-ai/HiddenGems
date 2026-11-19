@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { categories, items, postalServices, shops, type User } from "@/db/schema";
 import { daysBetween, todayLondon } from "./format";
-import { bucketKey, listBuckets, resolvePeriod, type Period, type PeriodInput } from "./periods";
+import { bucketKey, listBuckets, prorateGoal, resolvePeriod, type Period, type PeriodInput } from "./periods";
 
 const londonDate = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(d);
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -54,6 +54,8 @@ export type Report = {
     staleCount: number;
   };
   goal: { target: number; current: number } | null;
+  /** The monthly goal scaled to the chosen period, against profit in that period */
+  periodGoal: { target: number; current: number; monthly: number } | null;
 };
 
 const AGEING = [
@@ -178,6 +180,15 @@ export async function computeReport(user: User, input: PeriodInput): Promise<Rep
     goal = { target: Number(user.monthlyProfitGoal), current: r2(current) };
   }
 
+  const periodGoal: Report["periodGoal"] =
+    user.monthlyProfitGoal !== null
+      ? {
+          monthly: Number(user.monthlyProfitGoal),
+          target: prorateGoal(Number(user.monthlyProfitGoal), period.from, period.to),
+          current: r2(profit),
+        }
+      : null;
+
   const sorted = [...sales].sort((a, b) => b.profit - a.profit);
   const topShops = rank(out, (o) => o.shop);
 
@@ -213,5 +224,6 @@ export async function computeReport(user: User, input: PeriodInput): Promise<Rep
       staleCount: listedNow.filter((i) => daysBetween(i.listedAt ?? i.boughtAt, today) >= user.staleAfterDays).length,
     },
     goal,
+    periodGoal,
   };
 }
