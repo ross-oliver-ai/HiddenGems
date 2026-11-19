@@ -7,6 +7,9 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const session = await verifyToken(request.cookies.get(SESSION_COOKIE)?.value);
 
+  // One-time first-run setup page (protected by SETUP_TOKEN, refuses once an admin exists)
+  if (pathname === "/setup") return NextResponse.next();
+
   if (pathname === "/login") {
     if (session) return NextResponse.redirect(new URL("/", request.url));
     return NextResponse.next();

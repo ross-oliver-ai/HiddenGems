@@ -26,10 +26,13 @@ Stack: Next.js (App Router) on Vercel · Postgres on Railway · Drizzle ORM · T
    Re-running it resets that account's password.
 5. Run locally: `npm run dev`
 
+## First-time setup from a phone (no command line)
+Set `SETUP_TOKEN` (any secret, 12+ characters) in Vercel, deploy, then open `/setup`. Enter the code, your admin email and a password: it creates the tables and the admin account. It refuses to run again once an admin exists, so you can delete `SETUP_TOKEN` afterwards.
+
 ## Deploy to Vercel
 1. Import the GitHub repo into Vercel.
 2. Add the environment variables `DATABASE_URL`, `AUTH_SECRET` and `BLOB_READ_WRITE_TOKEN` (create a Blob store under Vercel → Storage).
-3. Deploy. Run `npm run db:migrate` and `npm run db:seed` from your computer against the Railway URL (steps 3 and 4 above).
+3. Also add `SETUP_TOKEN`. Deploy, then visit `/setup` (or run `npm run db:migrate` and `npm run db:seed` from a computer instead).
 
 ## Accounts
 Nobody can sign up. As admin, go to Settings → Manage users, add a person with a temporary password, and give it to them. They must choose their own password at first sign-in. Each user's data is private to them.
