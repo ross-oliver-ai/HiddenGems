@@ -147,7 +147,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       <ChartCard
         title="Profit over time"
         subtitle={`By ${bucketWord}${per.bucket === "week" ? " (week starting Monday)" : ""}`}
-        table={{ head: [per.bucket === "month" ? "Month" : per.bucket === "week" ? "Week of" : "Day", "Profit"], rows: r.series.map((s) => [s.label, signed(s.profit)]) }}
+        table={{ head: [per.bucket === "month" ? "Month" : per.bucket === "week" ? "Week of" : "Day", "Profit"], rows: r.series.map((s) => [s.full, signed(s.profit)]) }}
       >
         {noActivity ? <Empty>No data for this period.</Empty> : <ProfitChart data={r.series} />}
       </ChartCard>
@@ -156,7 +156,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         title="Spent vs revenue"
         subtitle={`By ${bucketWord}`}
         legend={[LEGEND_SPENT, LEGEND_REVENUE]}
-        table={{ head: ["Period", "Spent", "Revenue"], rows: r.series.map((s) => [s.label, money(s.spent), money(s.revenue)]) }}
+        table={{ head: ["Period", "Spent", "Revenue"], rows: r.series.map((s) => [s.full, money(s.spent), money(s.revenue)]) }}
       >
         {noActivity ? <Empty>No data for this period.</Empty> : <SpentRevenueChart data={r.series} />}
       </ChartCard>

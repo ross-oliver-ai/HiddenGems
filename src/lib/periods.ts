@@ -120,7 +120,7 @@ export function resolvePeriod(input: PeriodInput, today: string, earliest: strin
   return { id, offset: navigable ? offset : 0, from, to, label, bucket, navigable };
 }
 
-export type BucketInfo = { key: string; label: string };
+export type BucketInfo = { key: string; label: string; full: string };
 
 export function bucketKey(date: string, bucket: Bucket): string {
   if (bucket === "day") return date;
@@ -128,19 +128,29 @@ export function bucketKey(date: string, bucket: Bucket): string {
   return date.slice(0, 7);
 }
 
+const weekdayDay = (s: string) =>
+  parse(s).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+
 export function listBuckets(from: string, to: string, bucket: Bucket): BucketInfo[] {
   const out: BucketInfo[] = [];
   if (bucket === "day") {
-    for (let d = from; d <= to; d = addDays(d, 1)) out.push({ key: d, label: String(Number(d.slice(8))) });
+    // "8 Nov" on the axis (so the month is always visible), "Sat 8 Nov 2026" in the tooltip
+    for (let d = from; d <= to; d = addDays(d, 1)) out.push({ key: d, label: dayLabel(d), full: weekdayDay(d) });
   } else if (bucket === "week") {
-    for (let d = mondayOf(from); d <= to; d = addDays(d, 7)) out.push({ key: d, label: dayLabel(d) });
+    for (let d = mondayOf(from); d <= to; d = addDays(d, 7)) out.push({ key: d, label: dayLabel(d), full: `Week of ${fullDay(d)}` });
   } else {
+    // Plain month names within one calendar year, "Nov 26" once the range crosses a year end
+    const crossesYear = from.slice(0, 4) !== to.slice(0, 4);
     let y = Number(from.slice(0, 4));
     let m = Number(from.slice(5, 7)) - 1;
     const endKey = to.slice(0, 7);
     for (;;) {
       const key = `${y}-${String(m + 1).padStart(2, "0")}`;
-      out.push({ key, label: y !== Number(from.slice(0, 4)) || out.length === 0 ? `${MONTHS[m]} ${String(y).slice(2)}` : MONTHS[m] });
+      out.push({
+        key,
+        label: crossesYear ? `${MONTHS[m]} ${String(y).slice(2)}` : MONTHS[m],
+        full: `${MONTHS_LONG[m]} ${y}`,
+      });
       if (key >= endKey) break;
       m += 1;
       if (m > 11) { m = 0; y += 1; }

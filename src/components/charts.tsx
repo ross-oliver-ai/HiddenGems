@@ -137,20 +137,23 @@ export function ChartCard({
   );
 }
 
-type SeriesPoint = { key: string; label: string; spent: number; revenue: number; profit: number };
+type SeriesPoint = { key: string; label: string; full: string; spent: number; revenue: number; profit: number };
+
+// With few, short labels show them all; otherwise let Recharts thin them out
+const xInterval = (data: SeriesPoint[]) => (data.length <= 12 && data.every((d) => d.label.length <= 5) ? 0 : "preserveStartEnd");
 
 export function ProfitChart({ data }: { data: SeriesPoint[] }) {
   return (
     <ChartBox height={220} label="Profit over time">
       <BarChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barCategoryGap="20%">
         <CartesianGrid vertical={false} stroke={GRID} />
-        <XAxis dataKey="label" tick={axisText} tickLine={false} axisLine={{ stroke: GRID }} interval="preserveStartEnd" minTickGap={14} />
+        <XAxis dataKey="label" tick={axisText} tickLine={false} axisLine={{ stroke: GRID }} interval={xInterval(data)} minTickGap={14} />
         <YAxis tick={axisText} tickLine={false} axisLine={false} tickFormatter={tick} width={44} />
         <ReferenceLine y={0} stroke={GRID} />
         <Tooltip
           cursor={{ fill: "var(--primary-soft)", opacity: 0.6 }}
-          content={({ active, payload, label }) => (
-            <Tip active={active} label={String(label ?? "")} rows={[{ name: "Profit", value: signed(Number(payload?.[0]?.value ?? 0)), color: PRIMARY }]} />
+          content={({ active, payload }) => (
+            <Tip active={active} label={(payload?.[0]?.payload as SeriesPoint | undefined)?.full} rows={[{ name: "Profit", value: signed(Number(payload?.[0]?.value ?? 0)), color: PRIMARY }]} />
           )}
         />
         <Bar dataKey="profit" maxBarSize={24} shape={(p: ShapeProps) => <RoundedBar {...p} />}>
@@ -168,14 +171,14 @@ export function SpentRevenueChart({ data }: { data: SeriesPoint[] }) {
     <ChartBox height={220} label="Spent compared with revenue over time">
       <BarChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barCategoryGap="20%" barGap={2}>
         <CartesianGrid vertical={false} stroke={GRID} />
-        <XAxis dataKey="label" tick={axisText} tickLine={false} axisLine={{ stroke: GRID }} interval="preserveStartEnd" minTickGap={14} />
+        <XAxis dataKey="label" tick={axisText} tickLine={false} axisLine={{ stroke: GRID }} interval={xInterval(data)} minTickGap={14} />
         <YAxis tick={axisText} tickLine={false} axisLine={false} tickFormatter={tick} width={44} />
         <Tooltip
           cursor={{ fill: "var(--primary-soft)", opacity: 0.6 }}
-          content={({ active, payload, label }) => (
+          content={({ active, payload }) => (
             <Tip
               active={active}
-              label={String(label ?? "")}
+              label={(payload?.[0]?.payload as SeriesPoint | undefined)?.full}
               rows={[
                 { name: "Spent", value: signed(Number(payload?.find((p) => p.dataKey === "spent")?.value ?? 0)), color: MUTED_BAR },
                 { name: "Revenue", value: signed(Number(payload?.find((p) => p.dataKey === "revenue")?.value ?? 0)), color: PRIMARY },
