@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { ChangePasswordForm } from "@/components/ChangePasswordForm";
 import { Logo } from "@/components/Logo";
+import { logoutAction } from "@/app/(app)/settings/actions";
 
 export default async function ChangePasswordPage() {
   const user = await getCurrentUser();
@@ -17,6 +18,9 @@ export default async function ChangePasswordPage() {
       <div className="card">
         <ChangePasswordForm />
       </div>
+      <form action={logoutAction} className="mt-4 text-center">
+        <button type="submit" className="text-sm font-bold text-muted underline">Not you? Sign out</button>
+      </form>
     </main>
   );
 }
