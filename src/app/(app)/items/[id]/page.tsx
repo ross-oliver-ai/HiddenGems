@@ -9,6 +9,7 @@ import { isStale, itemProfit } from "@/lib/items";
 import { StatusPill } from "@/components/StatusPill";
 import { StepForm } from "@/components/ActionForm";
 import { ItemForm } from "@/components/ItemForm";
+import { PhotoViewer } from "@/components/PhotoViewer";
 import { deleteItemAction } from "../actions";
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
@@ -82,10 +83,7 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
       <Link href="/items" className="text-sm font-bold text-primary">← Items</Link>
 
       <div className="card space-y-3">
-        {item.photoUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={item.photoUrl} alt={item.name} className="max-h-80 w-full rounded-2xl object-cover" />
-        )}
+        {item.photoUrl && <PhotoViewer src={item.photoUrl} alt={item.name} />}
         <div className="flex items-start justify-between gap-3">
           <h1 className="text-xl font-extrabold leading-tight">{item.name}</h1>
           <StatusPill status={s} />
