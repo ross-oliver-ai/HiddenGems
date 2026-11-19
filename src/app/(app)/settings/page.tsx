@@ -64,6 +64,11 @@ export default async function SettingsPage() {
         </div>
       </section>
 
+      <Link href="/settings/lists" className="card flex items-center justify-between font-extrabold">
+        Shops, categories & postage
+        <span aria-hidden className="text-primary">→</span>
+      </Link>
+
       {user.role === "admin" && (
         <Link href="/admin/users" className="card flex items-center justify-between font-extrabold">
           Manage users

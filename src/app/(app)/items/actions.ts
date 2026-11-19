@@ -1,0 +1,157 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { and, eq, sql } from "drizzle-orm";
+import { del } from "@vercel/blob";
+import { db } from "@/db";
+import { items, shops } from "@/db/schema";
+import { requireUser } from "@/lib/auth";
+import { parseMoney, todayLondon } from "@/lib/format";
+import { CONDITIONS } from "@/lib/items";
+
+export type ItemState = { error?: string };
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const str = (v: FormDataEntryValue | null, max = 200) => {
+  const s = String(v ?? "").trim().slice(0, max);
+  return s || null;
+};
+const date = (v: FormDataEntryValue | null) => {
+  const s = String(v ?? "").trim();
+  return DATE_RE.test(s) && !Number.isNaN(Date.parse(s)) ? s : null;
+};
+
+async function shopIdFor(userId: number, name: string | null): Promise<number | null> {
+  if (!name) return null;
+  const [found] = await db
+    .select({ id: shops.id, archived: shops.archived })
+    .from(shops)
+    .where(and(eq(shops.userId, userId), sql`lower(${shops.name}) = lower(${name})`))
+    .limit(1);
+  if (found) {
+    if (found.archived) await db.update(shops).set({ archived: false }).where(eq(shops.id, found.id));
+    return found.id;
+  }
+  const [created] = await db.insert(shops).values({ userId: userId, name }).returning({ id: shops.id });
+  return created.id;
+}
+
+function safePhoto(v: FormDataEntryValue | null): string | null {
+  const s = String(v ?? "").trim();
+  return /^https:\/\/[a-z0-9.-]+\.public\.blob\.vercel-storage\.com\//i.test(s) ? s : null;
+}
+
+async function removeBlob(url: string | null | undefined) {
+  if (!url || !process.env.BLOB_READ_WRITE_TOKEN) return;
+  try {
+    await del(url);
+  } catch {
+    /* best effort */
+  }
+}
+
+export async function createItemAction(_prev: ItemState, formData: FormData): Promise<ItemState> {
+  const user = await requireUser();
+  const name = str(formData.get("name"), 120);
+  const buyPrice = parseMoney(formData.get("buyPrice"));
+  const boughtAt = date(formData.get("boughtAt"));
+  if (!name) return { error: "Give the item a name." };
+  if (buyPrice === null) return { error: "Enter what you paid (0 if it was free)." };
+  if (!boughtAt) return { error: "Choose the date you bought it." };
+  if (boughtAt > todayLondon()) return { error: "The buy date can't be in the future." };
+
+  const condition = str(formData.get("condition"));
+  const categoryId = Number(formData.get("categoryId")) || null;
+
+  const [created] = await db
+    .insert(items)
+    .values({
+      userId: user.id,
+      name,
+      buyPrice,
+      boughtAt,
+      shopId: await shopIdFor(user.id, str(formData.get("shop"), 60)),
+      categoryId,
+      brand: str(formData.get("brand"), 60),
+      size: str(formData.get("size"), 30),
+      condition: condition && CONDITIONS.includes(condition) ? condition : null,
+      notes: str(formData.get("notes"), 500),
+      photoUrl: safePhoto(formData.get("photoUrl")),
+      status: "bought",
+    })
+    .returning({ id: items.id });
+
+  revalidatePath("/items");
+  revalidatePath("/");
+  if (formData.get("again")) redirect("/items/new?added=1");
+  redirect(`/items/${created.id}`);
+}
+
+export async function updateItemAction(_prev: ItemState, formData: FormData): Promise<ItemState> {
+  const user = await requireUser();
+  const id = Number(formData.get("id"));
+  const [item] = await db.select().from(items).where(and(eq(items.id, id), eq(items.userId, user.id))).limit(1);
+  if (!item) return { error: "Item not found." };
+
+  const name = str(formData.get("name"), 120);
+  const buyPrice = parseMoney(formData.get("buyPrice"));
+  const boughtAt = date(formData.get("boughtAt"));
+  if (!name) return { error: "Give the item a name." };
+  if (buyPrice === null) return { error: "Enter what you paid." };
+  if (!boughtAt) return { error: "Choose the date you bought it." };
+
+  const condition = str(formData.get("condition"));
+  const patch: Partial<typeof items.$inferInsert> = {
+    name,
+    buyPrice,
+    boughtAt,
+    shopId: await shopIdFor(user.id, str(formData.get("shop"), 60)),
+    categoryId: Number(formData.get("categoryId")) || null,
+    brand: str(formData.get("brand"), 60),
+    size: str(formData.get("size"), 30),
+    condition: condition && CONDITIONS.includes(condition) ? condition : null,
+    notes: str(formData.get("notes"), 500),
+    photoUrl: safePhoto(formData.get("photoUrl")),
+    updatedAt: new Date(),
+  };
+
+  // Stage-specific fields are only present on the form when the item has reached that stage
+  if (formData.has("listedAt")) {
+    const listedAt = date(formData.get("listedAt"));
+    const listPrice = parseMoney(formData.get("listPrice"));
+    if (!listedAt || listPrice === null) return { error: "Check the listing date and price." };
+    patch.listedAt = listedAt;
+    patch.listPrice = listPrice;
+    patch.vintedUrl = str(formData.get("vintedUrl"), 300);
+  }
+  if (formData.has("soldAt")) {
+    const soldAt = date(formData.get("soldAt"));
+    const soldPrice = parseMoney(formData.get("soldPrice"));
+    if (!soldAt || soldPrice === null) return { error: "Check the sold date and price." };
+    patch.soldAt = soldAt;
+    patch.soldPrice = soldPrice;
+    patch.postalServiceId = Number(formData.get("postalServiceId")) || null;
+  }
+  if (formData.has("postedAt")) patch.postedAt = date(formData.get("postedAt"));
+
+  await db.update(items).set(patch).where(eq(items.id, id));
+  if (item.photoUrl && item.photoUrl !== patch.photoUrl) await removeBlob(item.photoUrl);
+
+  revalidatePath("/items");
+  revalidatePath(`/items/${id}`);
+  revalidatePath("/");
+  redirect(`/items/${id}`);
+}
+
+export async function deleteItemAction(formData: FormData) {
+  const user = await requireUser();
+  const id = Number(formData.get("id"));
+  const [item] = await db.select().from(items).where(and(eq(items.id, id), eq(items.userId, user.id))).limit(1);
+  if (!item) redirect("/items");
+  await db.delete(items).where(eq(items.id, id));
+  await removeBlob(item.photoUrl);
+  revalidatePath("/items");
+  revalidatePath("/");
+  redirect("/items");
+}

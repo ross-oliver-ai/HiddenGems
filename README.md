@@ -6,7 +6,7 @@ Stack: Next.js (App Router) on Vercel · Postgres on Railway · Drizzle ORM · T
 
 ## Status
 - [x] Stage 1: database schema, login, admin-created accounts, forced password change, app shell, colour themes + dark mode
-- [ ] Stage 2: items (bought → listed → sold → posted → completed, returns), photos, postal services / shops / categories settings
+- [x] Stage 2: items (bought → listed → sold → posted → completed, returns), photos, postal services / shops / categories settings
 - [ ] Stage 3: reports and charts, goals, stale-stock alerts, CSV export
 - [ ] Stage 4: installable app (PWA), polish
 
