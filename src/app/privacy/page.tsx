@@ -25,7 +25,7 @@ export default function PrivacyPage() {
       <section className="space-y-2">
         <h2 className="text-lg font-extrabold">How long we keep it</h2>
         <p>
-          Until you&apos;re invited and have joined, or until you ask us to remove it. If the beta doesn&apos;t go ahead, we&apos;ll delete the list.
+          Until you&apos;re invited and have joined, or until you ask us to remove it. If the trial doesn&apos;t go ahead, we&apos;ll delete the list.
         </p>
       </section>
 
