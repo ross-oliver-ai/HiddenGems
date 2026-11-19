@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { WaitlistForm } from "./WaitlistForm";
+import { GoalShowcase } from "./GoalShowcase";
 
 export const metadata: Metadata = {
   title: "Hidden Gems: know what you really make from reselling",
@@ -121,6 +122,16 @@ export default function WelcomePage() {
               </div>
             ))}
           </div>
+        </section>
+
+        <section className="grid items-center gap-6 py-10 md:grid-cols-2 md:gap-12" aria-labelledby="goal-title">
+          <div className="space-y-3 text-center md:text-left">
+            <h2 id="goal-title" className="text-2xl font-extrabold tracking-tight md:text-3xl">Celebrate the wins</h2>
+            <p className="text-lg text-muted">
+              Set a monthly profit goal and watch the bar fill as the sales roll in. Beat it, and Hidden Gems throws you a little party.
+            </p>
+          </div>
+          <GoalShowcase />
         </section>
 
         <section className="py-10" aria-labelledby="join-bottom-title">
