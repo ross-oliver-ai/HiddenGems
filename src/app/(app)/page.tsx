@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Confetti } from "@/components/Confetti";
 import { and, count, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { items } from "@/db/schema";
@@ -32,6 +33,7 @@ export default async function HomePage() {
   // Monthly goal progress (only when a goal is set)
   const goal = user.monthlyProfitGoal !== null ? (await computeReport(user, { p: "month" })).goal : null;
   const goalPct = goal && goal.target > 0 ? Math.max(0, Math.min(100, Math.round((goal.current / goal.target) * 100))) : 0;
+  const goalMet = !!goal && goal.target > 0 && goal.current >= goal.target;
 
   const tile = (label: string, value: React.ReactNode, href: string, accent = false) => (
     <Link href={href} className={`card active:scale-[0.98] ${accent ? "bg-primary-soft" : ""}`}>
@@ -55,6 +57,12 @@ export default async function HomePage() {
           <div className="h-3 overflow-hidden rounded-full bg-primary-soft" role="progressbar" aria-valuenow={goalPct} aria-valuemin={0} aria-valuemax={100}>
             <div className="h-full rounded-full bg-primary" style={{ width: `${goalPct}%` }} />
           </div>
+          {goalMet && (
+            <>
+              <p className="text-sm font-bold text-primary">🎉 Goal smashed!</p>
+              <Confetti />
+            </>
+          )}
         </Link>
       )}
 
