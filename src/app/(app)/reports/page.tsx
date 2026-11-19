@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { money } from "@/lib/format";
+import { money, todayLondon } from "@/lib/format";
 import { PERIODS } from "@/lib/periods";
 import { computeReport, type Ranked } from "@/lib/reports";
 import {
@@ -13,7 +13,7 @@ import {
   SpentRevenueChart,
 } from "@/components/charts";
 
-type Params = { p?: string; o?: string; from?: string; to?: string };
+type Params = { p?: string; o?: string; from?: string; to?: string; at?: string; m?: string; y?: string };
 
 const signed = (n: number) => (n < 0 ? "−" : "") + money(Math.abs(n));
 const pct = (n: number | null) => (n === null ? "–" : `${n}%`);
@@ -44,12 +44,24 @@ function Empty({ children }: { children: React.ReactNode }) {
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<Params> }) {
   const user = await requireUser();
   const params = await searchParams;
-  const r = await computeReport(user, params);
+  // "Jump to" form sends month (m) and/or year (y); turn it into a date inside that period
+  const jumpY = /^\d{4}$/.test(params.y ?? "") ? params.y : undefined;
+  const jumpM = /^(0[1-9]|1[0-2])$/.test(params.m ?? "") ? params.m : undefined;
+  const at = params.at ?? (jumpY ? `${jumpY}-${jumpM ?? "06"}-01` : undefined);
+  const r = await computeReport(user, { ...params, at });
   const { period: per, kpi, stock, goal } = r;
 
   const link = (p: string, o = 0) => `/reports?p=${p}${o ? `&o=${o}` : ""}`;
   const noActivity = kpi.boughtCount === 0 && kpi.soldCount === 0 && kpi.writtenOff === 0;
   const bucketWord = per.bucket === "day" ? "day" : per.bucket === "week" ? "week" : "month";
+
+  const drill = per.bucket === "month" ? "month" : per.bucket === "week" ? "week" : null;
+  const thisYear = Number(todayLondon().slice(0, 4));
+  const firstYear = r.earliest ? Math.min(Number(r.earliest.slice(0, 4)), thisYear) : thisYear;
+  const years = Array.from({ length: thisYear - firstYear + 1 }, (_, n) => thisYear - n);
+  const showJump = ["month", "quarter", "year", "taxyear", "week"].includes(per.id);
+  const showMonthSelect = per.id === "month" || per.id === "quarter";
+  const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
   const goalPct = goal && goal.target > 0 ? Math.max(0, Math.min(100, Math.round((goal.current / goal.target) * 100))) : 0;
 
@@ -95,6 +107,43 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         </form>
       ) : (
         <p className="text-center font-extrabold">{per.label}</p>
+      )}
+
+      {showJump && (
+        <details className="card">
+          <summary className="cursor-pointer list-none text-center font-bold text-primary">Jump to a specific {per.id === "week" ? "date" : showMonthSelect ? "month" : "year"}</summary>
+          <form action="/reports" className="mt-3 grid grid-cols-2 gap-3">
+            <input type="hidden" name="p" value={per.id} />
+            {per.id === "week" ? (
+              <div className="col-span-2">
+                <label className="label" htmlFor="at">Any date in the week</label>
+                <input id="at" name="at" type="date" max={todayLondon()} defaultValue={per.from} className="field" required />
+              </div>
+            ) : (
+              <>
+                {showMonthSelect && (
+                  <div>
+                    <label className="label" htmlFor="m">Month</label>
+                    <select id="m" name="m" defaultValue={per.from.slice(5, 7)} className="field">
+                      {MONTH_NAMES.map((n, i) => (
+                        <option key={n} value={String(i + 1).padStart(2, "0")}>{n}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                <div className={showMonthSelect ? "" : "col-span-2"}>
+                  <label className="label" htmlFor="y">{per.id === "taxyear" ? "Tax year starting April" : "Year"}</label>
+                  <select id="y" name="y" defaultValue={per.id === "taxyear" ? per.from.slice(0, 4) : per.from.slice(0, 4)} className="field">
+                    {years.map((yy) => (
+                      <option key={yy} value={yy}>{per.id === "taxyear" ? `${yy}/${String(yy + 1).slice(2)}` : yy}</option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
+            <button type="submit" className="btn col-span-2">Show</button>
+          </form>
+        </details>
       )}
 
       {noActivity && (
@@ -147,18 +196,18 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       <ChartCard
         title="Profit over time"
         subtitle={`By ${bucketWord}${per.bucket === "week" ? " (week starting Monday)" : ""}`}
-        table={{ head: [per.bucket === "month" ? "Month" : per.bucket === "week" ? "Week of" : "Day", "Profit"], rows: r.series.map((s) => [s.label, signed(s.profit)]) }}
+        table={{ head: [per.bucket === "month" ? "Month" : per.bucket === "week" ? "Week of" : "Day", "Profit"], rows: r.series.map((s) => [s.full, signed(s.profit)]) }}
       >
-        {noActivity ? <Empty>No data for this period.</Empty> : <ProfitChart data={r.series} />}
+        {noActivity ? <Empty>No data for this period.</Empty> : <ProfitChart key={`${per.id}-${per.from}`} data={r.series} drill={drill} />}
       </ChartCard>
 
       <ChartCard
         title="Spent vs revenue"
         subtitle={`By ${bucketWord}`}
         legend={[LEGEND_SPENT, LEGEND_REVENUE]}
-        table={{ head: ["Period", "Spent", "Revenue"], rows: r.series.map((s) => [s.label, money(s.spent), money(s.revenue)]) }}
+        table={{ head: ["Period", "Spent", "Revenue"], rows: r.series.map((s) => [s.full, money(s.spent), money(s.revenue)]) }}
       >
-        {noActivity ? <Empty>No data for this period.</Empty> : <SpentRevenueChart data={r.series} />}
+        {noActivity ? <Empty>No data for this period.</Empty> : <SpentRevenueChart key={`${per.id}-${per.from}`} data={r.series} drill={drill} />}
       </ChartCard>
 
       {/* Breakdowns */}

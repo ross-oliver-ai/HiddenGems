@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { getCurrentUser } from "@/lib/auth";
+import { THEMES } from "@/lib/themes";
 
 export const metadata: Metadata = {
   title: "Hidden Gems",
@@ -9,12 +10,11 @@ export const metadata: Metadata = {
   appleWebApp: { capable: true, title: "Hidden Gems", statusBarStyle: "default" },
 };
 
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  viewportFit: "cover",
-  themeColor: "#d9638b",
-};
+export async function generateViewport(): Promise<Viewport> {
+  const user = await getCurrentUser().catch(() => null);
+  const theme = THEMES.find((t) => t.id === user?.theme) ?? THEMES[0];
+  return { width: "device-width", initialScale: 1, viewportFit: "cover", themeColor: theme.swatch[0] };
+}
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser().catch(() => null);

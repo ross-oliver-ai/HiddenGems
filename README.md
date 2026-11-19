@@ -34,6 +34,9 @@ Set `SETUP_TOKEN` (any secret, 12+ characters) in Vercel, deploy, then open `/se
 2. Add the environment variables `DATABASE_URL`, `AUTH_SECRET` and `BLOB_READ_WRITE_TOKEN` (create a Blob store under Vercel → Storage).
 3. Also add `SETUP_TOKEN`. Deploy, then visit `/setup` (or run `npm run db:migrate` and `npm run db:seed` from a computer instead).
 
+## Installing it on a phone
+It works like an app with no app store. iPhone: open the site in Safari, tap Share, then Add to Home Screen. Android: open it in Chrome, tap the ⋮ menu, then Install app. It opens full-screen with the gem icon. It needs a connection to work (no offline mode).
+
 ## Accounts
 Nobody can sign up. As admin, go to Settings → Manage users, add a person with a temporary password, and give it to them. They must choose their own password at first sign-in. Each user's data is private to them.
 

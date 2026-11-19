@@ -24,6 +24,7 @@ export type Ranked = { name: string; value: number; items: number; spent?: numbe
 
 export type Report = {
   period: Period;
+  earliest: string | null;
   kpi: {
     spent: number;
     boughtCount: number;
@@ -38,7 +39,7 @@ export type Report = {
     avgDaysToSell: number | null;
     sellThrough: { sold: number; of: number } | null;
   };
-  series: { key: string; label: string; spent: number; revenue: number; profit: number }[];
+  series: { key: string; label: string; full: string; spent: number; revenue: number; profit: number }[];
   byCategory: Ranked[];
   byShop: Ranked[];
   byPostal: Ranked[];
@@ -141,7 +142,7 @@ export async function computeReport(user: User, input: PeriodInput): Promise<Rep
   // Time series
   const buckets = listBuckets(from, to, period.bucket);
   const idx = new Map(buckets.map((b, n) => [b.key, n]));
-  const series = buckets.map((b) => ({ key: b.key, label: b.label, spent: 0, revenue: 0, profit: 0 }));
+  const series = buckets.map((b) => ({ key: b.key, label: b.label, full: b.full, spent: 0, revenue: 0, profit: 0 }));
   for (const i of bought) {
     const n = idx.get(bucketKey(i.boughtAt, period.bucket));
     if (n !== undefined) series[n].spent += Number(i.buyPrice);
@@ -182,6 +183,7 @@ export async function computeReport(user: User, input: PeriodInput): Promise<Rep
 
   return {
     period,
+    earliest,
     kpi: {
       spent: r2(spent),
       boughtCount: bought.length,
