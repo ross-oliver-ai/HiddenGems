@@ -43,7 +43,7 @@ function safePhoto(v: FormDataEntryValue | null): string | null {
 }
 
 async function removeBlob(url: string | null | undefined) {
-  if (!url || !process.env.BLOB_READ_WRITE_TOKEN) return;
+  if (!url || (!process.env.BLOB_READ_WRITE_TOKEN && !process.env.BLOB_STORE_ID)) return;
   try {
     await del(url);
   } catch {
