@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
+import { Confetti } from "@/components/Confetti";
 import { money, todayLondon } from "@/lib/format";
 import { PERIODS } from "@/lib/periods";
 import { computeReport, type Ranked } from "@/lib/reports";
@@ -65,6 +66,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
 
   const isWholeMonth =
     per.id === "month" || (per.from.slice(8) === "01" && per.from.slice(0, 7) === per.to.slice(0, 7) && per.to.slice(8) >= "28");
+  const goalMet = !!goal && goal.target > 0 && goal.current >= goal.target;
   const goalPct = goal && goal.target > 0 ? Math.max(0, Math.min(100, Math.round((goal.current / goal.target) * 100))) : 0;
 
   return (
@@ -175,6 +177,12 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
             <div className="h-full rounded-full bg-primary" style={{ width: `${goalPct}%` }} />
           </div>
           <p className="text-xs text-muted">{goalPct}% of {isWholeMonth ? `your ${money(goal.monthly)} monthly profit goal.` : `your profit goal for this period, which is your ${money(goal.monthly)} monthly goal scaled to the days shown.`}</p>
+          {goalMet && (
+            <>
+              <p className="text-sm font-bold text-primary">🎉 Goal smashed!</p>
+              <Confetti />
+            </>
+          )}
         </section>
       )}
 
