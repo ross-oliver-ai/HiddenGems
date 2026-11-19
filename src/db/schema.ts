@@ -150,3 +150,17 @@ export const priceChanges = pgTable(
 export type User = typeof users.$inferSelect;
 export type Item = typeof items.$inferSelect;
 export type ItemStatus = (typeof itemStatusEnum.enumValues)[number];
+
+/** People who asked for an invite on the public landing page. */
+export const waitlist = pgTable(
+  "waitlist",
+  {
+    id: serial("id").primaryKey(),
+    email: text("email").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    invitedAt: timestamp("invited_at", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("waitlist_email_idx").on(t.email)],
+);
+
+export type WaitlistEntry = typeof waitlist.$inferSelect;

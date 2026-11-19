@@ -10,11 +10,16 @@ export async function proxy(request: NextRequest) {
   // One-time first-run setup page (protected by SETUP_TOKEN, refuses once an admin exists)
   if (pathname === "/setup") return NextResponse.next();
 
+  // Public pages: the landing page and privacy notice
+  if (pathname === "/privacy" || pathname === "/welcome") return NextResponse.next();
+
   if (pathname === "/login") {
     if (session) return NextResponse.redirect(new URL("/", request.url));
     return NextResponse.next();
   }
   if (!session) {
+    // Logged-out visitors to the front door see the landing page (the address stays "/")
+    if (pathname === "/") return NextResponse.rewrite(new URL("/welcome", request.url));
     return NextResponse.redirect(new URL("/login", request.url));
   }
   return NextResponse.next();
