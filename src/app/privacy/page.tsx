@@ -18,14 +18,22 @@ export default function PrivacyPage() {
       </section>
 
       <section className="space-y-2">
+        <h2 className="text-lg font-extrabold">Your account</h2>
+        <p>
+          If you create an account we store your name, your email address, a scrambled version of your password (never the password itself), your settings, and what you enter into the app,
+          such as items, prices, dates and photos. It&apos;s private to you. We use it only to run Hidden Gems for you, and we email you only to confirm your address and reset your password when you ask.
+        </p>
+      </section>
+
+      <section className="space-y-2">
         <h2 className="text-lg font-extrabold">Why we&apos;re allowed to use it</h2>
-        <p>You gave us your email to be told when your invite is ready, and that&apos;s what we use it for.</p>
+        <p>For the waitlist, you gave us your email to be told when your invite is ready. For an account, we need your details to provide the service you asked for.</p>
       </section>
 
       <section className="space-y-2">
         <h2 className="text-lg font-extrabold">How long we keep it</h2>
         <p>
-          Until you&apos;re invited and have joined, or until you ask us to remove it. If the trial doesn&apos;t go ahead, we&apos;ll delete the list.
+          Waitlist emails are kept until you&apos;re invited and have joined, or until you ask us to remove it. Account data is kept until you ask us to delete your account. If the trial doesn&apos;t go ahead, we&apos;ll delete the list.
         </p>
       </section>
 

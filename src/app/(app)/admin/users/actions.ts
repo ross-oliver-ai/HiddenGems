@@ -34,6 +34,7 @@ export async function createUserAction(_prev: AdminState, formData: FormData): P
       passwordHash: await hashPassword(parsed.data.password),
       role: "seller",
       mustChangePassword: true,
+      emailVerifiedAt: new Date(), // the admin vouches for accounts they create
     })
     .returning({ id: users.id });
   await seedUserDefaults(created.id);

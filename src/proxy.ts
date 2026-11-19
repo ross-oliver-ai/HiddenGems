@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, verifyToken } from "@/lib/session";
 
+// Pages anyone can open without signing in
+const PUBLIC_PATHS = new Set(["/privacy", "/terms", "/welcome", "/signup", "/verify", "/resend-verification", "/forgot-password", "/reset-password"]);
+
 // Cheap first gate: no valid session cookie -> /login.
 // Real authorisation (user still exists, not disabled, admin role) is checked in the server code.
 export async function proxy(request: NextRequest) {
@@ -11,7 +14,7 @@ export async function proxy(request: NextRequest) {
   if (pathname === "/setup") return NextResponse.next();
 
   // Public pages: the landing page and privacy notice
-  if (pathname === "/privacy" || pathname === "/welcome") return NextResponse.next();
+  if (PUBLIC_PATHS.has(pathname)) return NextResponse.next();
 
   if (pathname === "/login") {
     if (session) return NextResponse.redirect(new URL("/", request.url));

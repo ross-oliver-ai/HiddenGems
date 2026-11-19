@@ -36,6 +36,7 @@ async function main() {
       passwordHash,
       role: "admin",
       mustChangePassword: false,
+      emailVerifiedAt: new Date(),
     });
     console.log(`Created admin account ${email}`);
   }

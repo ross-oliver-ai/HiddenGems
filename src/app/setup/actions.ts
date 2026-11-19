@@ -60,6 +60,7 @@ export async function setupAction(_prev: SetupState, formData: FormData): Promis
     passwordHash: await hashPassword(parsed.data.password),
     role: "admin",
     mustChangePassword: false,
+    emailVerifiedAt: new Date(),
   });
   return { ok: true, email: parsed.data.email };
 }
