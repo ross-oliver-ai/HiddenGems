@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { items } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { daysBetween, money, todayLondon } from "@/lib/format";
+import { computeReport } from "@/lib/reports";
 
 export default async function HomePage() {
   const user = await requireUser();
@@ -28,6 +29,10 @@ export default async function HomePage() {
   const today = todayLondon();
   const stale = listedRows.filter((r) => r.listedAt && daysBetween(r.listedAt, today) >= user.staleAfterDays).length;
 
+  // Monthly goal progress (only when a goal is set)
+  const goal = user.monthlyProfitGoal !== null ? (await computeReport(user, { p: "month" })).goal : null;
+  const goalPct = goal && goal.target > 0 ? Math.max(0, Math.min(100, Math.round((goal.current / goal.target) * 100))) : 0;
+
   const tile = (label: string, value: React.ReactNode, href: string, accent = false) => (
     <Link href={href} className={`card active:scale-[0.98] ${accent ? "bg-primary-soft" : ""}`}>
       <p className="text-3xl font-extrabold">{value}</p>
@@ -40,6 +45,18 @@ export default async function HomePage() {
       <h1 className="text-2xl font-extrabold tracking-tight">
         {greeting}, {user.name.split(" ")[0]} ✨
       </h1>
+
+      {goal && (
+        <Link href="/reports" className="card block space-y-2">
+          <div className="flex items-baseline justify-between">
+            <h2 className="font-extrabold">This month&apos;s goal</h2>
+            <p className="text-sm font-bold">{goal.current < 0 ? "−" : ""}{money(Math.abs(goal.current))} of {money(goal.target)}</p>
+          </div>
+          <div className="h-3 overflow-hidden rounded-full bg-primary-soft" role="progressbar" aria-valuenow={goalPct} aria-valuemin={0} aria-valuemax={100}>
+            <div className="h-full rounded-full bg-primary" style={{ width: `${goalPct}%` }} />
+          </div>
+        </Link>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         {tile("To list on Vinted", toList, "/items?f=bought", toList > 0)}
@@ -60,7 +77,7 @@ export default async function HomePage() {
           <Link href="/items/new" className="btn">Add your first find</Link>
         </div>
       )}
-      <p className="text-center text-sm text-muted">Profit reports and charts are coming next.</p>
+      <Link href="/reports" className="btn-soft w-full">See your reports</Link>
     </div>
   );
 }
