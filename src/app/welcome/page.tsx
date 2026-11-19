@@ -3,6 +3,9 @@ import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { WaitlistForm } from "./WaitlistForm";
 import { GoalShowcase } from "./GoalShowcase";
+import { signupsOpen } from "@/lib/email";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Hidden Gems: know what you really make from reselling",
@@ -68,7 +71,18 @@ function PreviewCard() {
   );
 }
 
+function JoinBox({ id, open }: { id: string; open: boolean }) {
+  if (!open) return <WaitlistForm id={id} />;
+  return (
+    <div className="space-y-3 text-center">
+      <Link href="/signup" className="btn w-full">Create your free account</Link>
+      <p className="text-xs text-muted">No card needed. Already signed up? <Link href="/login" className="font-bold underline">Sign in</Link></p>
+    </div>
+  );
+}
+
 export default function WelcomePage() {
+  const open = signupsOpen();
   return (
     <div className="mx-auto w-full max-w-5xl px-5 pb-16">
       <header className="flex items-center justify-between pb-5 pt-[calc(env(safe-area-inset-top)+2rem)]">
@@ -83,7 +97,7 @@ export default function WelcomePage() {
         <section className="grid items-center gap-10 py-8 md:grid-cols-2 md:py-14">
           <div className="space-y-5 text-center md:text-left">
             <p className="inline-block rounded-full bg-primary-soft px-3.5 py-1.5 text-sm font-bold text-primary">
-              Free trial · invites going out soon
+              {open ? "Free trial · no card needed" : "Free trial · invites going out soon"}
             </p>
             <h1 className="text-4xl font-extrabold leading-[1.08] tracking-tight md:text-5xl">
               Know what you <span className="text-primary">really</span> make from reselling.
@@ -92,7 +106,7 @@ export default function WelcomePage() {
               Hidden Gems keeps track of everything you buy and sell, then turns it into clear, pretty reports, so you can see your spend, stock and profit at a glance.
             </p>
             <div className="card mx-auto max-w-md text-left md:mx-0">
-              <WaitlistForm id="join-top" />
+              <JoinBox id="join-top" open={open} />
             </div>
           </div>
           <PreviewCard />
@@ -136,10 +150,10 @@ export default function WelcomePage() {
 
         <section className="py-10" aria-labelledby="join-bottom-title">
           <div className="mx-auto max-w-md space-y-4 rounded-[2rem] bg-primary-soft p-6 text-center">
-            <h2 id="join-bottom-title" className="text-2xl font-extrabold tracking-tight">Get an early invite</h2>
-            <p className="text-muted">The trial is free. Leave your email and we&apos;ll let you in as spots open up.</p>
+            <h2 id="join-bottom-title" className="text-2xl font-extrabold tracking-tight">{open ? "Start your free trial" : "Get an early invite"}</h2>
+            <p className="text-muted">{open ? "It's free to try, and takes a minute to set up." : "The trial is free. Leave your email and we'll let you in as spots open up."}</p>
             <div className="card text-left">
-              <WaitlistForm id="join-bottom" />
+              <JoinBox id="join-bottom" open={open} />
             </div>
           </div>
         </section>
@@ -148,6 +162,7 @@ export default function WelcomePage() {
       <footer className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 pt-6 text-sm text-muted">
         <span>© {new Date().getFullYear()} Hidden Gems</span>
         <Link href="/privacy" className="font-bold underline">Privacy</Link>
+        <Link href="/terms" className="font-bold underline">Terms</Link>
         <Link href="/login" className="font-bold underline">Sign in</Link>
       </footer>
     </div>

@@ -37,6 +37,22 @@ Set `SETUP_TOKEN` (any secret, 12+ characters) in Vercel, deploy, then open `/se
 ## Installing it on a phone
 It works like an app with no app store. iPhone: open the site in Safari, tap Share, then Add to Home Screen. Android: open it in Chrome, tap the ⋮ menu, then Install app. It opens full-screen with the gem icon. It needs a connection to work (no offline mode).
 
+## Sign-up, email and password reset
+These are **off until you switch them on** in Vercel, so the app behaves exactly as before. They need a [Resend](https://resend.com) account (free tier) with a verified sending domain.
+
+| Variable | What it does |
+|---|---|
+| `RESEND_API_KEY` | Turns email on. With `EMAIL_FROM` set, "Forgot your password?" appears on the sign-in page. |
+| `EMAIL_FROM` | The sender, e.g. `Hidden Gems <hello@yourdomain.com>` (must be on your verified Resend domain). |
+| `APP_URL` | Your site's address, e.g. `https://yourdomain.com`, used for links in emails. (Optional on Vercel.) |
+| `SIGNUPS_OPEN` | Set to `true` to let anyone create an account. Needs email set up. Remove it or set it to `false` to close sign-ups again. |
+| `SIGNUPS_PER_DAY` | Optional cap on new accounts per day (default 100). |
+
+Anyone who signs up must confirm their email before they can sign in. Accounts created by the admin are already confirmed.
+
+## Database updates
+On Vercel **production** deploys, the build applies any pending database updates before building the app. If an update fails, the build fails and the live site stays on the previous version. Updates only ever add things, so rolling back the code never breaks the data. Settings → Update database is still there as a manual fallback.
+
 ## Accounts
 Nobody can sign up. As admin, go to Settings → Manage users, add a person with a temporary password, and give it to them. They must choose their own password at first sign-in. Each user's data is private to them.
 

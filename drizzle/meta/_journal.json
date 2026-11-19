@@ -15,6 +15,13 @@
       "when": 1795125612287,
       "tag": "0001_chief_thanos",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795126854407,
+      "tag": "0002_wooden_nicolaos",
+      "breakpoints": true
     }
   ]
 }

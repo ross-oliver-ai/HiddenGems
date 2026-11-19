@@ -40,6 +40,8 @@ export const users = pgTable(
     colorMode: text("color_mode").notNull().default("system"), // light | dark | system
     monthlyProfitGoal: numeric("monthly_profit_goal", { precision: 10, scale: 2 }),
     staleAfterDays: integer("stale_after_days").notNull().default(30),
+    // Null = signed up themselves and hasn't confirmed their email yet (accounts made by the admin are confirmed on creation)
+    emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [uniqueIndex("users_email_idx").on(t.email)],
@@ -164,3 +166,20 @@ export const waitlist = pgTable(
 );
 
 export type WaitlistEntry = typeof waitlist.$inferSelect;
+
+export const tokenKindEnum = pgEnum("token_kind", ["verify_email", "reset_password"]);
+
+/** One-time links sent by email (confirm your email, reset your password). Only a hash of the token is stored. */
+export const authTokens = pgTable(
+  "auth_tokens",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    kind: tokenKindEnum("kind").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("auth_tokens_hash_idx").on(t.tokenHash), index("auth_tokens_user_idx").on(t.userId, t.kind)],
+);
