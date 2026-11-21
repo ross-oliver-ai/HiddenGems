@@ -37,7 +37,7 @@ export const users = pgTable(
     disabled: boolean("disabled").notNull().default(false),
     // per-user settings
     theme: text("theme").notNull().default("blossom"),
-    colorMode: text("color_mode").notNull().default("system"), // light | dark | system
+    colorMode: text("color_mode").notNull().default("dark"), // light | dark | system (new accounts start in dark mode; existing accounts keep their choice)
     monthlyProfitGoal: numeric("monthly_profit_goal", { precision: 10, scale: 2 }),
     staleAfterDays: integer("stale_after_days").notNull().default(30),
     // Null = signed up themselves and hasn't confirmed their email yet (accounts made by the admin are confirmed on creation)

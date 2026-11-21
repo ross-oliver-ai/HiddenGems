@@ -36,6 +36,13 @@
       "when": 1795266398634,
       "tag": "0004_title_case_categories",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795266625904,
+      "tag": "0005_default_dark_mode",
+      "breakpoints": true
     }
   ]
 }
