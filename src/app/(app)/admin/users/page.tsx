@@ -3,7 +3,7 @@ import { asc } from "drizzle-orm";
 import { db } from "@/db";
 import { users, type User } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
-import { CreateUserForm, ResetPasswordForm } from "@/components/AdminForms";
+import { ChangeEmailAdminForm, CreateUserForm, ResetPasswordForm } from "@/components/AdminForms";
 import { entitlement, fmtDate } from "@/lib/billing";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { endTrialNowAction, extendTrialAction, toggleDisabledAction, toggleExemptAction } from "./actions";
@@ -44,6 +44,7 @@ export default async function AdminUsersPage() {
               <details className="group">
                 <summary className="btn-soft cursor-pointer list-none">Manage</summary>
                 <div className="mt-3 space-y-3">
+                  <ChangeEmailAdminForm userId={u.id} email={u.email} />
                   <ResetPasswordForm userId={u.id} />
                   <form action={toggleExemptAction}>
                     <input type="hidden" name="userId" value={u.id} />

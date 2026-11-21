@@ -89,6 +89,11 @@ export async function createCheckoutUrl(user: User, siteUrl: string): Promise<st
   return session.url;
 }
 
+/** Keeps the email on the Stripe customer (where receipts go) in step with the account. */
+export async function updateCustomerEmail(customerId: string, email: string): Promise<void> {
+  await call("POST", `/v1/customers/${encodeURIComponent(customerId)}`, { email });
+}
+
 export async function createPortalUrl(customerId: string, returnUrl: string): Promise<string> {
   const session = await call<{ url: string }>("POST", "/v1/billing_portal/sessions", { customer: customerId, return_url: returnUrl });
   return session.url;

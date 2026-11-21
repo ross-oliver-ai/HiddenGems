@@ -9,6 +9,7 @@ import { requireAdmin } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
 import { seedUserDefaults } from "@/lib/defaults";
 import { DAY_MS, trialDays, trialEnd } from "@/lib/billing";
+import { applyEmailChange } from "@/lib/emailChange";
 
 export type AdminState = { error?: string; ok?: string; values?: { name: string; email: string } };
 
@@ -106,4 +107,23 @@ export async function endTrialNowAction(formData: FormData) {
   if (!target) return;
   await db.update(users).set({ trialEndsAt: new Date(Date.now() - 60 * 1000) }).where(eq(users.id, id));
   revalidatePath("/admin/users");
+}
+
+/** Changes someone's sign-in email straight away (the admin vouches for the new address, so no confirmation link). */
+export async function changeEmailAction(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const admin = await requireAdmin();
+  const id = Number(formData.get("userId"));
+  if (!Number.isInteger(id)) return { error: "Unknown user." };
+  if (id === admin.id) return { error: "Change your own email from Settings." };
+  const parsed = z.string().trim().toLowerCase().max(254).pipe(z.email("Enter a valid email.")).safeParse(formData.get("email"));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const [target] = await db.select({ email: users.email }).from(users).where(eq(users.id, id));
+  if (!target) return { error: "Unknown user." };
+  if (target.email === parsed.data) return { error: "That's already their email." };
+
+  const result = await applyEmailChange(id, parsed.data);
+  if (!result.ok) return { error: result.reason === "taken" ? "An account with that email already exists." : "Unknown user." };
+  revalidatePath("/admin/users");
+  return { ok: `Email changed to ${parsed.data}. They sign in with it from now on.` };
 }

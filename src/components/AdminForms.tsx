@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { createUserAction, resetPasswordAction, type AdminState } from "@/app/(app)/admin/users/actions";
+import { changeEmailAction, createUserAction, resetPasswordAction, type AdminState } from "@/app/(app)/admin/users/actions";
 import { SubmitButton } from "./SubmitButton";
 import { PasswordInput } from "./PasswordGenerator";
 
@@ -42,6 +42,19 @@ export function ResetPasswordForm({ userId }: { userId: number }) {
       <PasswordInput id={`pw-${userId}`} />
       <Message state={state} />
       <SubmitButton className="btn-soft w-full" pendingText="Resetting…">Reset password</SubmitButton>
+    </form>
+  );
+}
+
+export function ChangeEmailAdminForm({ userId, email }: { userId: number; email: string }) {
+  const [state, action] = useActionState<AdminState, FormData>(changeEmailAction, {});
+  return (
+    <form action={action} key={state.ok ?? "form"} className="space-y-2">
+      <input type="hidden" name="userId" value={userId} />
+      <label className="label" htmlFor={`email-${userId}`}>Sign-in email</label>
+      <input id={`email-${userId}`} name="email" type="email" inputMode="email" required autoComplete="off" className="field" defaultValue={email} />
+      <Message state={state} />
+      <SubmitButton className="btn-soft w-full" pendingText="Saving…">Change email</SubmitButton>
     </form>
   );
 }
