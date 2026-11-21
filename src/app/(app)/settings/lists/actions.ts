@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { categories, postalServices, shops, users } from "@/db/schema";
-import { requireUser } from "@/lib/auth";
+import { requireWritableUser } from "@/lib/auth";
 
 export type ListState = { error?: string };
 
@@ -16,7 +16,7 @@ function kindOf(v: FormDataEntryValue | null): Kind | null {
 }
 
 export async function addEntryAction(_prev: ListState, formData: FormData): Promise<ListState> {
-  const user = await requireUser();
+  const user = await requireWritableUser();
   const kind = kindOf(formData.get("kind"));
   const name = String(formData.get("name") ?? "").trim();
   if (!kind) return { error: "Unknown list." };
@@ -37,7 +37,7 @@ export async function addEntryAction(_prev: ListState, formData: FormData): Prom
 }
 
 export async function renameEntryAction(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireWritableUser();
   const kind = kindOf(formData.get("kind"));
   const id = Number(formData.get("id"));
   const name = String(formData.get("name") ?? "").trim().slice(0, 60);
@@ -48,7 +48,7 @@ export async function renameEntryAction(formData: FormData) {
 }
 
 export async function toggleArchiveAction(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireWritableUser();
   const kind = kindOf(formData.get("kind"));
   const id = Number(formData.get("id"));
   if (!kind || !Number.isInteger(id)) return;
@@ -60,7 +60,7 @@ export async function toggleArchiveAction(formData: FormData) {
 }
 
 export async function updateTargetsAction(_prev: ListState & { ok?: boolean }, formData: FormData) {
-  const user = await requireUser();
+  const user = await requireWritableUser();
   const goalRaw = String(formData.get("goal") ?? "").replace(/[£\s,]/g, "");
   const stale = Number(formData.get("stale"));
   let goal: string | null = null;

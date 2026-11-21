@@ -21,7 +21,14 @@ export default function PrivacyPage() {
         <h2 className="text-lg font-extrabold">Your account</h2>
         <p>
           If you create an account we store your name, your email address, a scrambled version of your password (never the password itself), your settings, and what you enter into the app,
-          such as items, prices, dates and photos. It&apos;s private to you. We use it only to run Hidden Gems for you, and we email you only to confirm your address and reset your password when you ask.
+          such as items, prices, dates and photos. It&apos;s private to you. We use it only to run Hidden Gems for you, and we email you only to confirm your address, reset your password when you ask, and let you know when your free trial is about to end.
+        </p>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="text-lg font-extrabold">Payments</h2>
+        <p>
+          If you subscribe, your payment is handled by Stripe. We never see or store your card details. We keep only your Stripe customer and subscription references, whether your subscription is active, and when it renews or ends, so that we know whether your account is paid up.
         </p>
       </section>
 
@@ -47,7 +54,7 @@ export default function PrivacyPage() {
 
       <section className="space-y-2">
         <h2 className="text-lg font-extrabold">Where it&apos;s stored</h2>
-        <p>On secure cloud services (Vercel and Railway) that we use to run the app.</p>
+        <p>On secure cloud services (Vercel and Railway) that we use to run the app. Payments are processed by Stripe.</p>
       </section>
     </main>
   );

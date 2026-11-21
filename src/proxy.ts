@@ -16,6 +16,9 @@ export async function proxy(request: NextRequest) {
   // Public pages: the landing page and privacy notice
   if (PUBLIC_PATHS.has(pathname)) return NextResponse.next();
 
+  // Called by Stripe and by the daily scheduler, not by a signed-in person. Each checks its own secret.
+  if (pathname === "/api/stripe/webhook" || pathname.startsWith("/api/cron/")) return NextResponse.next();
+
   if (pathname === "/login") {
     if (session) return NextResponse.redirect(new URL("/", request.url));
     return NextResponse.next();

@@ -1,12 +1,14 @@
 import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
+import { entitlement } from "@/lib/billing";
 
 const MAX_BYTES = 4 * 1024 * 1024; // Vercel functions accept ~4.5MB request bodies; the browser resizes first
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  if (!entitlement(user).canWrite) return NextResponse.json({ error: "Your trial has ended, so your account is read-only. Subscribe to add photos." }, { status: 402 });
   // Vercel Blob stores authenticate either with BLOB_READ_WRITE_TOKEN (older stores) or with BLOB_STORE_ID + OIDC (newer ones)
   if (!process.env.BLOB_READ_WRITE_TOKEN && !process.env.BLOB_STORE_ID) {
     return NextResponse.json({ error: "Photo storage isn't set up yet. Connect a Blob store to the Vercel project." }, { status: 501 });

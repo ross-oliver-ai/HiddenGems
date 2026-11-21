@@ -6,7 +6,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { del } from "@vercel/blob";
 import { db } from "@/db";
 import { items, shops } from "@/db/schema";
-import { requireUser } from "@/lib/auth";
+import { requireWritableUser } from "@/lib/auth";
 import { parseMoney, todayLondon } from "@/lib/format";
 import { CONDITIONS } from "@/lib/items";
 
@@ -52,7 +52,7 @@ async function removeBlob(url: string | null | undefined) {
 }
 
 export async function createItemAction(_prev: ItemState, formData: FormData): Promise<ItemState> {
-  const user = await requireUser();
+  const user = await requireWritableUser();
   const name = str(formData.get("name"), 120);
   const buyPrice = parseMoney(formData.get("buyPrice"));
   const boughtAt = date(formData.get("boughtAt"));
@@ -89,7 +89,7 @@ export async function createItemAction(_prev: ItemState, formData: FormData): Pr
 }
 
 export async function updateItemAction(_prev: ItemState, formData: FormData): Promise<ItemState> {
-  const user = await requireUser();
+  const user = await requireWritableUser();
   const id = Number(formData.get("id"));
   const [item] = await db.select().from(items).where(and(eq(items.id, id), eq(items.userId, user.id))).limit(1);
   if (!item) return { error: "Item not found." };
@@ -145,7 +145,7 @@ export async function updateItemAction(_prev: ItemState, formData: FormData): Pr
 }
 
 export async function deleteItemAction(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireWritableUser();
   const id = Number(formData.get("id"));
   const [item] = await db.select().from(items).where(and(eq(items.id, id), eq(items.userId, user.id))).limit(1);
   if (!item) redirect("/items");

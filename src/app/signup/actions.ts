@@ -9,6 +9,7 @@ import { seedUserDefaults } from "@/lib/defaults";
 import { signupsOpen } from "@/lib/email";
 import { sendAlreadyHaveAccountEmail, sendVerificationEmail } from "@/lib/authEmails";
 import { recentTokens } from "@/lib/tokens";
+import { DAY_MS, trialDays } from "@/lib/billing";
 
 export type SignupState = { ok?: boolean; error?: string; name?: string; email?: string; terms?: boolean };
 
@@ -51,6 +52,7 @@ export async function signupAction(_prev: SignupState, formData: FormData): Prom
       role: "seller",
       mustChangePassword: false,
       emailVerifiedAt: null,
+      trialEndsAt: new Date(Date.now() + trialDays() * DAY_MS),
     })
     .returning({ id: users.id });
   await seedUserDefaults(created.id);

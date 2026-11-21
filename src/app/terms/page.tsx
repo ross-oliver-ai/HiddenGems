@@ -26,8 +26,20 @@ export default function TermsPage() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-lg font-extrabold">The free trial</h2>
-        <p>Hidden Gems is a trial and is still being improved. Features may change, and it may be unavailable from time to time. If we start to charge, we&apos;ll tell you well beforehand and you won&apos;t be charged without agreeing first.</p>
+        <h2 className="text-lg font-extrabold">Free trial and subscription</h2>
+        <p>Every new account starts with a free trial. We don&apos;t ask for a card, and we never charge you unless you choose to subscribe.</p>
+        <p>
+          When the trial ends, your account becomes read-only: you can still see and download everything you&apos;ve entered, but you can&apos;t add or edit items. To carry on, you can subscribe for £3 a month. Your data is kept so you can pick up where you left off.
+        </p>
+        <p>
+          A subscription renews every month until you cancel. You can cancel at any time from the Billing page in the app, and you&apos;ll keep access until the end of the month you&apos;ve paid for. If you change your mind within 14 days of subscribing, tell us and we&apos;ll refund you. Payments are handled by Stripe, so we never see or store your card details.
+        </p>
+        <p>We&apos;ll tell you well beforehand if the price changes, and a new price only applies if you carry on after being told.</p>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="text-lg font-extrabold">Still being improved</h2>
+        <p>Hidden Gems is a new service. Features may change, and it may be unavailable from time to time.</p>
       </section>
 
       <section className="space-y-2">

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { items, postalServices, priceChanges, type ItemStatus } from "@/db/schema";
-import { requireUser } from "@/lib/auth";
+import { requireWritableUser } from "@/lib/auth";
 import { parseMoney, todayLondon } from "@/lib/format";
 
 export type LifecycleState = { error?: string; ok?: boolean };
@@ -31,7 +31,7 @@ const FROM: Record<string, ItemStatus[]> = {
 };
 
 export async function lifecycleAction(_prev: LifecycleState, formData: FormData): Promise<LifecycleState> {
-  const user = await requireUser();
+  const user = await requireWritableUser();
   const id = Number(formData.get("id"));
   const intent = String(formData.get("intent") ?? "");
   if (!Number.isInteger(id) || !(intent in FROM)) return { error: "Something went wrong." };

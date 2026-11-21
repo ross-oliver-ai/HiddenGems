@@ -66,6 +66,11 @@ export default async function SettingsPage() {
         </div>
       </section>
 
+      <Link href="/billing" className="card flex items-center justify-between font-extrabold">
+        Billing
+        <span aria-hidden className="text-primary">→</span>
+      </Link>
+
       <Link href="/settings/lists" className="card flex items-center justify-between font-extrabold">
         Shops, categories & postage
         <span aria-hidden className="text-primary">→</span>
