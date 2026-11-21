@@ -2,14 +2,14 @@ import { db } from "@/db";
 import { categories, postalServices } from "@/db/schema";
 
 export const DEFAULT_CATEGORIES = [
-  "Women's clothing",
-  "Men's clothing",
-  "Kids' clothing",
+  "Women's Clothing",
+  "Men's Clothing",
+  "Kids' Clothing",
   "Shoes",
-  "Bags & accessories",
+  "Bags & Accessories",
   "Books",
-  "Home & kitchen",
-  "Toys & games",
+  "Home & Kitchen",
+  "Toys & Games",
   "Electronics",
   "Other",
 ];

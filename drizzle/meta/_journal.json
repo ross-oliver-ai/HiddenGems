@@ -29,6 +29,13 @@
       "when": 1795263748255,
       "tag": "0003_billing",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795266398634,
+      "tag": "0004_title_case_categories",
+      "breakpoints": true
     }
   ]
 }
