@@ -48,3 +48,33 @@ export async function sendAlreadyHaveAccountEmail(userId: number, email: string)
     }),
   );
 }
+
+/** Sent to the NEW address: nothing changes until they tap the button. */
+export async function sendChangeEmailConfirm(userId: number, newEmail: string, name: string): Promise<boolean> {
+  const token = await createToken(userId, "change_email", newEmail);
+  const url = `${await appUrl()}/confirm-email-change?token=${token}`;
+  return sendEmail(
+    newEmail,
+    "Confirm your new email for Hidden Gems",
+    emailLayout({
+      heading: `Confirm your new email, ${name.split(" ")[0] || "there"}`,
+      body: "Tap the button to use this address to sign in to Hidden Gems from now on. The link works for 24 hours.",
+      buttonText: "Confirm my new email",
+      buttonUrl: url,
+      footer: "If you didn't ask for this, you can ignore this email and nothing will change.",
+    }),
+  );
+}
+
+/** Sent to the OLD address once the change has happened, in case it wasn't them. */
+export async function sendEmailChangedNotice(oldEmail: string, newEmail: string): Promise<boolean> {
+  return sendEmail(
+    oldEmail,
+    "Your Hidden Gems email was changed",
+    emailLayout({
+      heading: "Your sign-in email was changed",
+      body: `The email for your Hidden Gems account was changed to ${newEmail}. You'll use the new address to sign in from now on.`,
+      footer: "If this wasn't you, please contact us straight away.",
+    }),
+  );
+}

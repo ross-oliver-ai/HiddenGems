@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, verifyToken } from "@/lib/session";
 
 // Pages anyone can open without signing in
-const PUBLIC_PATHS = new Set(["/privacy", "/terms", "/welcome", "/signup", "/verify", "/resend-verification", "/forgot-password", "/reset-password"]);
+const PUBLIC_PATHS = new Set(["/privacy", "/terms", "/welcome", "/signup", "/verify", "/resend-verification", "/forgot-password", "/reset-password", "/confirm-email-change"]);
 
 // Cheap first gate: no valid session cookie -> /login.
 // Real authorisation (user still exists, not disabled, admin role) is checked in the server code.

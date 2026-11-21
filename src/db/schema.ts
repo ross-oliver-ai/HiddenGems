@@ -182,9 +182,9 @@ export const waitlist = pgTable(
 
 export type WaitlistEntry = typeof waitlist.$inferSelect;
 
-export const tokenKindEnum = pgEnum("token_kind", ["verify_email", "reset_password"]);
+export const tokenKindEnum = pgEnum("token_kind", ["verify_email", "reset_password", "change_email"]);
 
-/** One-time links sent by email (confirm your email, reset your password). Only a hash of the token is stored. */
+/** One-time links sent by email (confirm your email, reset your password, confirm a new email). Only a hash of the token is stored. */
 export const authTokens = pgTable(
   "auth_tokens",
   {
@@ -192,6 +192,7 @@ export const authTokens = pgTable(
     userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     kind: tokenKindEnum("kind").notNull(),
     tokenHash: text("token_hash").notNull(),
+    payload: text("payload"), // extra data carried by the link, e.g. the new email address for change_email
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     usedAt: timestamp("used_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
