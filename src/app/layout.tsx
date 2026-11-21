@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export async function generateViewport(): Promise<Viewport> {
   const user = await getCurrentUser().catch(() => null);
   const theme = THEMES.find((t) => t.id === user?.theme) ?? THEMES[0];
-  return { width: "device-width", initialScale: 1, viewportFit: "cover", themeColor: theme.swatch[0] };
+  return { width: "device-width", initialScale: 1, maximumScale: 1, viewportFit: "cover", themeColor: theme.swatch[0] };
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
