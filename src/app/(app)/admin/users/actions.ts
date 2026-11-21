@@ -8,6 +8,7 @@ import { users } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
 import { seedUserDefaults } from "@/lib/defaults";
+import { DAY_MS, trialDays, trialEnd } from "@/lib/billing";
 
 export type AdminState = { error?: string; ok?: string; values?: { name: string; email: string } };
 
@@ -35,6 +36,7 @@ export async function createUserAction(_prev: AdminState, formData: FormData): P
       role: "seller",
       mustChangePassword: true,
       emailVerifiedAt: new Date(), // the admin vouches for accounts they create
+      trialEndsAt: new Date(Date.now() + trialDays() * DAY_MS),
     })
     .returning({ id: users.id });
   await seedUserDefaults(created.id);
@@ -66,5 +68,31 @@ export async function toggleDisabledAction(formData: FormData) {
   const [target] = await db.select().from(users).where(eq(users.id, id));
   if (!target) return;
   await db.update(users).set({ disabled: !target.disabled }).where(eq(users.id, id));
+  revalidatePath("/admin/users");
+}
+
+/** Free forever (or back to a normal account). */
+export async function toggleExemptAction(formData: FormData) {
+  await requireAdmin();
+  const id = Number(formData.get("userId"));
+  if (!Number.isInteger(id)) return;
+  const [target] = await db.select().from(users).where(eq(users.id, id));
+  if (!target) return;
+  await db.update(users).set({ billingExempt: !target.billingExempt }).where(eq(users.id, id));
+  revalidatePath("/admin/users");
+}
+
+/** Gives someone 14 more days of trial (from today if their trial has already ended). */
+export async function extendTrialAction(formData: FormData) {
+  await requireAdmin();
+  const id = Number(formData.get("userId"));
+  if (!Number.isInteger(id)) return;
+  const [target] = await db.select().from(users).where(eq(users.id, id));
+  if (!target) return;
+  const from = Math.max(Date.now(), trialEnd(target).getTime());
+  await db
+    .update(users)
+    .set({ trialEndsAt: new Date(from + 14 * DAY_MS), trialReminder7SentAt: null, trialReminder1SentAt: null })
+    .where(eq(users.id, id));
   revalidatePath("/admin/users");
 }

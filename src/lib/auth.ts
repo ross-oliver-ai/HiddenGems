@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { users, type User } from "@/db/schema";
 import { readSession } from "./session";
+import { entitlement } from "./billing";
 
 export const getCurrentUser = cache(async (): Promise<User | null> => {
   const session = await readSession();
@@ -24,5 +25,15 @@ export async function requireUser(): Promise<User> {
 export async function requireAdmin(): Promise<User> {
   const user = await requireUser();
   if (user.role !== "admin") redirect("/");
+  return user;
+}
+
+/**
+ * For anything that adds, edits or deletes data. When billing is on and the trial or subscription has ended the account is
+ * read-only, so this sends them to the billing page instead. (Reading, exporting and signing out are never blocked.)
+ */
+export async function requireWritableUser(): Promise<User> {
+  const user = await requireUser();
+  if (!entitlement(user).canWrite) redirect("/billing?locked=1");
   return user;
 }

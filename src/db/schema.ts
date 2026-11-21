@@ -42,9 +42,24 @@ export const users = pgTable(
     staleAfterDays: integer("stale_after_days").notNull().default(30),
     // Null = signed up themselves and hasn't confirmed their email yet (accounts made by the admin are confirmed on creation)
     emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+    // Billing. None of this is enforced unless BILLING_ENABLED=true in Vercel.
+    // "Free forever" accounts (e.g. the first testers) are never locked.
+    billingExempt: boolean("billing_exempt").notNull().default(false),
+    // End of the free trial (set at sign-up). Null falls back to created_at + the trial length.
+    trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
+    stripeCustomerId: text("stripe_customer_id"),
+    stripeSubscriptionId: text("stripe_subscription_id"),
+    // Mirrors Stripe's subscription status: active, past_due, canceled, unpaid, ...
+    subscriptionStatus: text("subscription_status"),
+    subscriptionPeriodEnd: timestamp("subscription_period_end", { withTimezone: true }),
+    cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+    // Set when a payment fails, cleared when it succeeds: drives the short grace period
+    paymentFailedAt: timestamp("payment_failed_at", { withTimezone: true }),
+    trialReminder7SentAt: timestamp("trial_reminder_7_sent_at", { withTimezone: true }),
+    trialReminder1SentAt: timestamp("trial_reminder_1_sent_at", { withTimezone: true }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("users_email_idx").on(t.email)],
+  (t) => [uniqueIndex("users_email_idx").on(t.email), index("users_stripe_customer_idx").on(t.stripeCustomerId)],
 );
 
 export const shops = pgTable(
@@ -183,3 +198,10 @@ export const authTokens = pgTable(
   },
   (t) => [uniqueIndex("auth_tokens_hash_idx").on(t.tokenHash), index("auth_tokens_user_idx").on(t.userId, t.kind)],
 );
+
+/** Stripe webhook events we've already handled (Stripe can send the same event more than once). */
+export const stripeEvents = pgTable("stripe_events", {
+  id: text("id").primaryKey(),
+  type: text("type").notNull(),
+  processedAt: timestamp("processed_at", { withTimezone: true }).notNull().defaultNow(),
+});

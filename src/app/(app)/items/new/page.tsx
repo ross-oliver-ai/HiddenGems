@@ -1,13 +1,13 @@
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { categories, shops } from "@/db/schema";
-import { requireUser } from "@/lib/auth";
+import { requireWritableUser } from "@/lib/auth";
 import { todayLondon } from "@/lib/format";
 import { lastShopName } from "@/lib/queries";
 import { ItemForm } from "@/components/ItemForm";
 
 export default async function NewItemPage({ searchParams }: { searchParams: Promise<{ added?: string }> }) {
-  const user = await requireUser();
+  const user = await requireWritableUser();
   const { added } = await searchParams;
   const [shopRows, catRows, last] = await Promise.all([
     db.select({ name: shops.name }).from(shops).where(and(eq(shops.userId, user.id), eq(shops.archived, false))).orderBy(asc(shops.name)),

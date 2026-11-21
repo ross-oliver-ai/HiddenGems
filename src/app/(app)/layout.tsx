@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { BottomNav } from "@/components/BottomNav";
 import { Logo } from "@/components/Logo";
+import { BillingBanner } from "@/components/BillingBanner";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
@@ -16,7 +17,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           {user.name.charAt(0).toUpperCase()}
         </span>
       </header>
-      <main className="px-4 pb-32">{children}</main>
+      <main className="px-4 pb-32">
+        <BillingBanner user={user} />
+        {children}
+      </main>
       <BottomNav />
     </div>
   );
