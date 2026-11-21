@@ -96,3 +96,14 @@ export async function extendTrialAction(formData: FormData) {
     .where(eq(users.id, id));
   revalidatePath("/admin/users");
 }
+
+/** Ends someone's free trial straight away (they become read-only unless they subscribe). */
+export async function endTrialNowAction(formData: FormData) {
+  await requireAdmin();
+  const id = Number(formData.get("userId"));
+  if (!Number.isInteger(id)) return;
+  const [target] = await db.select().from(users).where(eq(users.id, id));
+  if (!target) return;
+  await db.update(users).set({ trialEndsAt: new Date(Date.now() - 60 * 1000) }).where(eq(users.id, id));
+  revalidatePath("/admin/users");
+}

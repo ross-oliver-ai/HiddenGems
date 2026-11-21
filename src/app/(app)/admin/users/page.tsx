@@ -5,7 +5,8 @@ import { users, type User } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
 import { CreateUserForm, ResetPasswordForm } from "@/components/AdminForms";
 import { entitlement, fmtDate } from "@/lib/billing";
-import { extendTrialAction, toggleDisabledAction, toggleExemptAction } from "./actions";
+import { ConfirmButton } from "@/components/ConfirmButton";
+import { endTrialNowAction, extendTrialAction, toggleDisabledAction, toggleExemptAction } from "./actions";
 
 export default async function AdminUsersPage() {
   const admin = await requireAdmin();
@@ -47,10 +48,16 @@ export default async function AdminUsersPage() {
                     <button type="submit" className="btn-soft w-full">{u.billingExempt ? "Remove free-forever" : "Make free forever"}</button>
                   </form>
                   {!u.billingExempt && (
-                    <form action={extendTrialAction}>
-                      <input type="hidden" name="userId" value={u.id} />
-                      <button type="submit" className="btn-soft w-full">Extend trial by 14 days</button>
-                    </form>
+                    <>
+                      <form action={extendTrialAction}>
+                        <input type="hidden" name="userId" value={u.id} />
+                        <ConfirmButton message={`Give ${u.name} 14 more days of free trial?`}>Extend trial by 14 days</ConfirmButton>
+                      </form>
+                      <form action={endTrialNowAction}>
+                        <input type="hidden" name="userId" value={u.id} />
+                        <ConfirmButton message={`End ${u.name}'s free trial now? Their account becomes read-only until they subscribe.`}>End trial now</ConfirmButton>
+                      </form>
+                    </>
                   )}
                   <form action={toggleDisabledAction}>
                     <input type="hidden" name="userId" value={u.id} />
