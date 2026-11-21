@@ -1,0 +1,1 @@
+ALTER TABLE "users" ALTER COLUMN "color_mode" SET DEFAULT 'dark';
