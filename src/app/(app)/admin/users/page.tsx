@@ -24,7 +24,9 @@ export default async function AdminUsersPage() {
       </section>
 
       <section className="space-y-3">
-        {all.map((u) => (
+        {all.map((u) => {
+          const state = entitlement(u, new Date(), true).state;
+          return (
           <div key={u.id} className="card space-y-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -47,19 +49,17 @@ export default async function AdminUsersPage() {
                     <input type="hidden" name="userId" value={u.id} />
                     <button type="submit" className="btn-soft w-full">{u.billingExempt ? "Remove free-forever" : "Make free forever"}</button>
                   </form>
-                  {!u.billingExempt && (
-                    <>
-                      <form action={extendTrialAction}>
-                        <input type="hidden" name="userId" value={u.id} />
-                        <ConfirmButton message={`Give ${u.name} 14 more days of free trial?`}>Extend trial by 14 days</ConfirmButton>
-                      </form>
-                      {entitlement(u, new Date(), true).state === "trial" && (
-                        <form action={endTrialNowAction}>
-                          <input type="hidden" name="userId" value={u.id} />
-                          <ConfirmButton message={`End ${u.name}'s free trial now? Their account becomes read-only until they subscribe.`}>End trial now</ConfirmButton>
-                        </form>
-                      )}
-                    </>
+                  {(state === "trial" || state === "locked") && (
+                    <form action={extendTrialAction}>
+                      <input type="hidden" name="userId" value={u.id} />
+                      <ConfirmButton message={`Give ${u.name} 14 more days of free trial?`}>Extend trial by 14 days</ConfirmButton>
+                    </form>
+                  )}
+                  {state === "trial" && (
+                    <form action={endTrialNowAction}>
+                      <input type="hidden" name="userId" value={u.id} />
+                      <ConfirmButton message={`End ${u.name}'s free trial now? Their account becomes read-only until they subscribe.`}>End trial now</ConfirmButton>
+                    </form>
                   )}
                   <form action={toggleDisabledAction}>
                     <input type="hidden" name="userId" value={u.id} />
@@ -71,7 +71,8 @@ export default async function AdminUsersPage() {
               </details>
             )}
           </div>
-        ))}
+          );
+        })}
       </section>
     </div>
   );
