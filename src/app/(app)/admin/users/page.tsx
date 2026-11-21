@@ -53,10 +53,12 @@ export default async function AdminUsersPage() {
                         <input type="hidden" name="userId" value={u.id} />
                         <ConfirmButton message={`Give ${u.name} 14 more days of free trial?`}>Extend trial by 14 days</ConfirmButton>
                       </form>
-                      <form action={endTrialNowAction}>
-                        <input type="hidden" name="userId" value={u.id} />
-                        <ConfirmButton message={`End ${u.name}'s free trial now? Their account becomes read-only until they subscribe.`}>End trial now</ConfirmButton>
-                      </form>
+                      {entitlement(u, new Date(), true).state === "trial" && (
+                        <form action={endTrialNowAction}>
+                          <input type="hidden" name="userId" value={u.id} />
+                          <ConfirmButton message={`End ${u.name}'s free trial now? Their account becomes read-only until they subscribe.`}>End trial now</ConfirmButton>
+                        </form>
+                      )}
                     </>
                   )}
                   <form action={toggleDisabledAction}>
