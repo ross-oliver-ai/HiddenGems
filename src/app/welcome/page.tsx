@@ -108,7 +108,7 @@ export default function WelcomePage() {
         <section className="mx-auto max-w-2xl space-y-3 py-10 text-center" aria-labelledby="problem">
           <h2 id="problem" className="text-2xl font-extrabold tracking-tight md:text-3xl">Your sales total isn&apos;t your profit</h2>
           <p className="text-lg text-muted">
-            Between the price you charge and the money you keep sit what you paid, the platform&apos;s fee, the postage, and the odd return. Hidden Gems does that sum on every item, so you don&apos;t have to.
+            Your sales total is what buyers paid. Your profit is what&apos;s left after you take off what you paid for the item, the platform&apos;s fee, the postage and any refund. Hidden Gems works that out for every item, so you don&apos;t have to.
           </p>
         </section>
 
