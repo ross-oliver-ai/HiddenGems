@@ -4,7 +4,7 @@ A mobile-first web app for resellers: record what you buy, list, sell and post, 
 
 - **Live site:** https://www.hiddengemsapp.co.uk (the original `hidden-gems-seven.vercel.app` address still works)
 - **Repo:** `ross-oliver-ai/HiddenGems` (default branch `main`)
-- **Last updated:** 22 November 2026
+- **Last updated:** 22 November 2026 (kept current with every change; see `CLAUDE.md`)
 
 > **If you only read one section, read [Current state](#1-current-state) and [Working notes](#14-working-notes-and-gotchas).**
 
@@ -390,6 +390,7 @@ npm run dev
 - **Theme and mode** are `data-theme` / `data-mode` attributes on `<html>`, driven by the user's saved choice; signed-out pages follow the device setting.
 - **Don't import the database at build time** in new top-level code: `src/db/index.ts` throws if `DATABASE_URL` is missing (that's why preview builds fail).
 - **Rate-limit counts** for emails use tokens created in the last hour, whether or not they were used.
+- **Keep this README current.** Every change that affects what's described here updates the README in the same pull request; `CLAUDE.md` has the checklist, and each PR description says which sections changed (or "No README impact").
 - **Ways of working.** The owner is a product manager building this from a phone: changes are made by Claude (Claude Code) in a sandbox, opened as a pull request, and **merged only when the owner says "merge"**. Keep changes small, one PR per idea, with a plain-English description and what was tested. Don't add unrequested features; propose them and wait.
 
 ---
