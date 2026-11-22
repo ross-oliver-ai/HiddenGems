@@ -2,7 +2,7 @@
 import type { Handover } from "@/db/schema";
 
 export const HANDOVER_LABEL: Record<Handover, string> = {
-  posted: "Posted",
+  posted: "By post",
   collected: "Collected by buyer",
   delivered: "I delivered it",
 };
