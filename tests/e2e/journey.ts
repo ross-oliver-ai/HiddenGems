@@ -155,6 +155,7 @@ async function main() {
     await page.goto(`${BASE}/items/${id}`);
     const t = await body(page);
     check("the item page shows the profit after fees and postage (£15 - £1.50 - £2 - £4 = £7.50) and where it sold", t.includes("£7.50") && /profit/i.test(t) && t.includes("eBay") && t.includes("Fees") && t.includes("Postage I paid"), t.slice(0, 400));
+    check("a sold item's page offers 'Undo sale'", t.includes("Undo sale"));
 
     // a collected item only completes once handed over
     const [boots2] = (await pool.query("insert into items (user_id, name, status, bought_at, buy_price) values ($1,'Collected lamp','bought','2026-01-01','2.00') returning id", [trial.id])).rows;
@@ -213,6 +214,23 @@ async function main() {
     const csv = await ctx.request.get(`${BASE}/reports/export`);
     const csvText = await csv.text();
     check("the CSV export includes the item and the fee columns", csv.status() === 200 && csvText.includes("Journey boots") && csvText.includes("Fees,Postage paid,Profit") && csvText.includes("Sold on,How it got there"));
+
+    // Undo last step (the collected lamp is now completed)
+    await page.goto(`${BASE}/items/${boots2.id}`);
+    check("a completed collection offers 'Undo: not handed over yet'", (await page.locator("button:has-text('Undo: not handed over yet')").count()) === 1);
+    await page.click("button:has-text('Undo: not handed over yet')");
+    await page.waitForTimeout(1500);
+    const unhanded = (await pool.query("select status, posted_at from items where id=$1", [boots2.id])).rows[0];
+    check("...and Undo puts it back to 'sold' with no handed-over date", unhanded.status === "sold" && unhanded.posted_at === null, JSON.stringify(unhanded));
+    await page.goto(`${BASE}/items/${boots2.id}`);
+    page.once("dialog", (d) => d.accept());
+    await page.click("button:has-text('Undo sale')");
+    await page.waitForTimeout(2000);
+    const unsold2 = (await pool.query("select status, sold_price, sold_at, fees::text from items where id=$1", [boots2.id])).rows[0];
+    const relive = (await pool.query("select count(*)::int as n from listings where item_id=$1 and ended_at is null", [boots2.id])).rows[0].n;
+    check("'Undo sale' (after confirming) clears the sale and puts it back on sale on both platforms it was listed on (Vinted and eBay)", unsold2.status === "listed" && unsold2.sold_price === null && unsold2.sold_at === null && unsold2.fees === "0.00" && relive === 2, JSON.stringify([unsold2, relive]));
+    await page.goto(`${BASE}/items/${boots2.id}`);
+    check("a listed item has no Undo button", (await page.locator("button:has-text('Undo')").count()) === 0);
 
     // settings pages open
     await page.goto(`${BASE}/settings`);
