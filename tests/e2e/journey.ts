@@ -62,9 +62,30 @@ async function main() {
     await page.waitForURL(`${BASE}/`, { timeout: 30_000 });
     return { ctx, page };
   }
-  const body = (page: import("playwright").Page) => page.innerText("body");
+  // Pages stream in behind a loading placeholder, so wait for the network to settle before reading the text
+  const body = async (page: import("playwright").Page) => {
+    await page.waitForLoadState("networkidle").catch(() => {});
+    return page.innerText("body");
+  };
 
   try {
+    // --- A visitor who isn't signed in sees the landing page ---
+    {
+      const vctx = await browser.newContext(phone);
+      const vp = await vctx.newPage();
+      await vp.goto(`${BASE}/`);
+      const t = await body(vp);
+      check("a signed-out visitor sees the landing page headline", /actually keep/i.test(t) && (await vp.locator("h1").count()) === 1, t.slice(0, 200));
+      check("...with the price and the trial length", t.includes("Free for 30 days, then £3 a month"), t.slice(0, 400));
+      check("...and the questions people ask", (await vp.locator("details").count()) === 5);
+      await vp.locator("details").first().locator("summary").click();
+      check("...which open when tapped", (await vp.locator("details[open]").count()) === 1);
+      await vp.getByRole("link", { name: "Sign in" }).first().click();
+      await vp.waitForURL(/\/login/);
+      check("...and the Sign in link goes to the sign-in page", vp.url().includes("/login"));
+      await vctx.close();
+    }
+
     // --- A normal seller ---
     const { ctx, page } = await signIn("trial@example.com");
     // Home streams in after its loading placeholder, so wait for the real content rather than reading the page at once
