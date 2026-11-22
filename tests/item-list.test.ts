@@ -1,7 +1,7 @@
 // The Items page list: how many show at first, "Show more", the total count, search, and keeping accounts apart.
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { PAGE_SIZE, parseShowCount } from "@/lib/items";
+import { FILTERS, PAGE_SIZE, parseShowCount } from "@/lib/items";
 import { dbSkipReason, pointAppAtTestDatabase, resetAndMigrate } from "./helpers/testdb";
 
 describe("parseShowCount()", () => {
@@ -98,5 +98,65 @@ describe("itemList()", { skip: dbSkipReason }, () => {
     assert.equal(rows.length, 0);
     const theirs = await list({ userId: otherId, statuses: null, term: "", show: 50 });
     assert.equal(theirs.total, 1);
+  });
+
+  it("each filter chip uses the right statuses and ordering", () => {
+    const f = (id: string) => FILTERS.find((x) => x.id === id)!;
+    assert.deepEqual(f("waiting").statuses, ["posted"]);
+    assert.equal(f("waiting").label, "Waiting for money");
+    assert.equal(f("waiting").order, "waiting");
+    assert.equal(f("sold").order, "sold");
+    assert.equal(f("send").order, "sold");
+    assert.equal(f("listed").order, "listed");
+    assert.equal(f("all").order, "newest");
+  });
+
+  it("orders sold items by sale date, newest sale first (not by when they were added)", async () => {
+    const s = await import("@/db/schema");
+    const [u] = await dbm.db.insert(s.users).values({ email: "order-sold@example.com", name: "o", passwordHash: "x" }).returning();
+    const base = { userId: u.id, boughtAt: "2026-01-01", buyPrice: "1.00", status: "sold" as const };
+    await dbm.db.insert(s.items).values([
+      { ...base, name: "Added first, sold last", soldAt: "2026-03-10", createdAt: new Date(Date.UTC(2026, 0, 1)) },
+      { ...base, name: "Added last, sold first", soldAt: "2026-02-01", createdAt: new Date(Date.UTC(2026, 0, 3)) },
+      { ...base, name: "Added middle, sold middle", soldAt: "2026-03-01", createdAt: new Date(Date.UTC(2026, 0, 2)) },
+      { ...base, name: "No sale date", soldAt: null, createdAt: new Date(Date.UTC(2026, 0, 4)) },
+    ]);
+    const { rows } = await list({ userId: u.id, statuses: null, term: "", show: 50, order: "sold" });
+    assert.deepEqual(rows.map((r) => r.item.name), ["Added first, sold last", "Added middle, sold middle", "Added last, sold first", "No sale date"]);
+  });
+
+  it("orders listed items longest-listed first, with undated ones last", async () => {
+    const s = await import("@/db/schema");
+    const [u] = await dbm.db.insert(s.users).values({ email: "order-listed@example.com", name: "o", passwordHash: "x" }).returning();
+    const base = { userId: u.id, boughtAt: "2026-01-01", buyPrice: "1.00", status: "listed" as const };
+    await dbm.db.insert(s.items).values([
+      { ...base, name: "Listed recently", listedAt: "2026-03-01", createdAt: new Date(Date.UTC(2026, 0, 1)) },
+      { ...base, name: "Listed longest ago", listedAt: "2026-01-05", createdAt: new Date(Date.UTC(2026, 0, 2)) },
+      { ...base, name: "Listed in between", listedAt: "2026-02-01", createdAt: new Date(Date.UTC(2026, 0, 3)) },
+      { ...base, name: "No listed date", listedAt: null, createdAt: new Date(Date.UTC(2026, 0, 4)) },
+    ]);
+    const { rows } = await list({ userId: u.id, statuses: ["listed"], term: "", show: 50, order: "listed" });
+    assert.deepEqual(rows.map((r) => r.item.name), ["Listed longest ago", "Listed in between", "Listed recently", "No listed date"]);
+  });
+
+  it("'Waiting for money' lists only posted items, longest wait first", async () => {
+    const s = await import("@/db/schema");
+    const [u] = await dbm.db.insert(s.users).values({ email: "order-waiting@example.com", name: "o", passwordHash: "x" }).returning();
+    const base = { userId: u.id, boughtAt: "2026-01-01", buyPrice: "1.00" };
+    await dbm.db.insert(s.items).values([
+      { ...base, name: "Posted last week", status: "posted", postedAt: "2026-03-10" },
+      { ...base, name: "Posted a month ago", status: "posted", postedAt: "2026-02-10" },
+      { ...base, name: "Paid already", status: "completed", postedAt: "2026-01-10" },
+      { ...base, name: "Not posted yet", status: "sold", postedAt: null },
+    ]);
+    const w = FILTERS.find((x) => x.id === "waiting")!;
+    const { rows, total } = await list({ userId: u.id, statuses: w.statuses, term: "", show: 50, order: w.order });
+    assert.equal(total, 2);
+    assert.deepEqual(rows.map((r) => r.item.name), ["Posted a month ago", "Posted last week"]);
+  });
+
+  it("without an order it stays newest added first", async () => {
+    const { rows } = await list({ userId, statuses: null, term: "", show: 3 });
+    assert.deepEqual(rows.map((r) => r.item.name), ["Item 120", "Item 119", "Item 118"]);
   });
 });

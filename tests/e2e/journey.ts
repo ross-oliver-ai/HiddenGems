@@ -189,13 +189,22 @@ async function main() {
     await page.waitForTimeout(2000);
     check("ticking it off marks it posted", (await pool.query("select status from items where id=$1", [id])).rows[0].status === "posted");
     check("...and offers Undo, with the list now empty", (await page.locator("button:has-text('Undo')").count()) === 1 && (await body(page)).includes("Nothing waiting to be sent"));
-    await page.click("button:has-text('Undo')");
+    // a posted parcel is "waiting for money": Home counts it and the Items chip lists it with how long it has waited
+    await page.goto(`${BASE}`);
+    const homeText = await body(page);
+    check("Home has a 'Waiting for money' tile counting the posted parcel", homeText.includes("Waiting for money") && (await page.locator("a[href='/items?f=waiting']").first().innerText()).trim().startsWith("1"), homeText.slice(0, 300));
+    await page.goto(`${BASE}/items?f=waiting`);
+    const waitText = await body(page);
+    check("the 'Waiting for money' view lists it with the days waiting", waitText.includes("Journey boots") && waitText.includes("Posted today") && !waitText.includes("Collected lamp"), waitText.slice(0, 300));
+    // the To send "Undo" bar is gone once the page changes, so undo from the item page instead
+    await page.goto(`${BASE}/items/${id}`);
+    await page.click("button:has-text('Undo: not posted yet')");
     await page.waitForTimeout(2000);
     const undone = (await pool.query("select status, posted_at from items where id=$1", [id])).rows[0];
     check("Undo puts it back to 'sold' with no posted date", undone.status === "sold" && undone.posted_at === null, JSON.stringify(undone));
     await page.goto(`${BASE}/items`);
     const chipBoxes = await page.locator("a[href^='/items?f=']").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
-    check("the filter chips wrap onto two rows instead of scrolling", new Set(chipBoxes).size === 2, JSON.stringify(chipBoxes));
+    check("the filter chips wrap onto several rows instead of scrolling", new Set(chipBoxes).size >= 2, JSON.stringify(chipBoxes));
 
     // reports and CSV
     await page.goto(`${BASE}/reports?p=all`);

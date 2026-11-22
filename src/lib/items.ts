@@ -25,15 +25,19 @@ export const STATUS_STYLE: Record<ItemStatus, string> = {
 
 export const CONDITIONS = ["New with tags", "New without tags", "Very good", "Good", "Satisfactory"];
 
+/** How a filter's list is ordered: newest added (default), newest sale first, longest-listed first, or longest-waiting first */
+export type ItemOrder = "newest" | "sold" | "listed" | "waiting";
+
 /** Filter chips on the items page */
-export const FILTERS: { id: string; label: string; statuses: ItemStatus[] | null }[] = [
-  { id: "all", label: "All", statuses: null },
-  { id: "stock", label: "In stock", statuses: ["bought", "listed"] },
-  { id: "bought", label: "To list", statuses: ["bought"] },
-  { id: "listed", label: "Listed", statuses: ["listed"] },
-  { id: "send", label: "To send", statuses: ["sold"] },
-  { id: "sold", label: "Sold", statuses: ["sold", "posted", "completed"] },
-  { id: "other", label: "Returned / unsold", statuses: ["returned", "unsold", "donated"] },
+export const FILTERS: { id: string; label: string; statuses: ItemStatus[] | null; order: ItemOrder }[] = [
+  { id: "all", label: "All", statuses: null, order: "newest" },
+  { id: "stock", label: "In stock", statuses: ["bought", "listed"], order: "newest" },
+  { id: "bought", label: "To list", statuses: ["bought"], order: "newest" },
+  { id: "listed", label: "Listed", statuses: ["listed"], order: "listed" },
+  { id: "send", label: "To send", statuses: ["sold"], order: "sold" },
+  { id: "waiting", label: "Waiting for money", statuses: ["posted"], order: "waiting" },
+  { id: "sold", label: "Sold", statuses: ["sold", "posted", "completed"], order: "sold" },
+  { id: "other", label: "Returned / unsold", statuses: ["returned", "unsold", "donated"], order: "newest" },
 ];
 
 const SOLD_STATUSES: ItemStatus[] = ["sold", "posted", "completed"];
@@ -85,4 +89,10 @@ export function undoOption(item: Pick<Item, "status" | "handover">): { label: st
     default:
       return null;
   }
+}
+
+/** "Waiting 1 day" / "Waiting 5 days" / "Posted today" for an item that's been posted but not yet paid for */
+export function waitingLabel(days: number): string {
+  if (days <= 0) return "Posted today";
+  return `Waiting ${days} day${days === 1 ? "" : "s"}`;
 }
