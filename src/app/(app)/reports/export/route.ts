@@ -27,7 +27,7 @@ export async function GET() {
   const head = [
     "Item", "Status", "Brand", "Size", "Condition", "Category", "Charity shop", "Date bought", "Paid",
     "Date listed", "Asking price", "Date sold", "Sold for", "Postage service", "Date posted",
-    "Date returned", "Refund", "Profit", "Notes", "Vinted link",
+    "Date returned", "Refund", "Profit", "Notes", "Listing link",
   ];
   const lines = [head.map(cell).join(",")];
   for (const { item: i, shop, category, postal } of rows) {

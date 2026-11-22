@@ -116,7 +116,7 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
           {item.size && <Row label="Size" value={item.size} />}
           {item.condition && <Row label="Condition" value={item.condition} />}
           {item.vintedUrl && (
-            <Row label="Vinted" value={<a href={item.vintedUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline">Open listing</a>} />
+            <Row label="Listing" value={<a href={item.vintedUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline">Open listing</a>} />
           )}
         </dl>
         {item.notes && <p className="rounded-xl bg-surface-2 px-3 py-2 text-sm">{item.notes}</p>}
@@ -124,13 +124,13 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
 
       {/* What's next */}
       {s === "bought" && (
-        <Step title="List on Vinted" open>
+        <Step title="List it" open>
           <StepForm itemId={id} intent="list" label="Mark as listed">
             <DateField label="Date listed" />
             <PriceField label="Asking price (£)" />
             <div>
-              <label className="label" htmlFor="url">Vinted link (optional)</label>
-              <input id="url" name="url" type="url" inputMode="url" placeholder="https://www.vinted.co.uk/items/…" className="field" />
+              <label className="label" htmlFor="url">Listing link (optional)</label>
+              <input id="url" name="url" type="url" inputMode="url" placeholder="https://…" className="field" />
             </div>
           </StepForm>
         </Step>
@@ -182,7 +182,7 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
       )}
       {s === "returned" && (
         <Step title="Back in stock: relist it" open>
-          <StepForm itemId={id} intent="relist" label="Relist on Vinted">
+          <StepForm itemId={id} intent="relist" label="Relist it">
             <DateField label="Date relisted" />
             <PriceField label="Asking price (£)" defaultValue={item.listPrice} />
           </StepForm>
@@ -192,7 +192,7 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
       {(s === "bought" || s === "listed") && (
         <Step title="Give up on it">
           <div className="space-y-3">
-            {s === "listed" && <StepForm itemId={id} intent="unlist" label="Take off Vinted (back to to-list)" tone="soft" />}
+            {s === "listed" && <StepForm itemId={id} intent="unlist" label="Take off sale (back to to-list)" tone="soft" />}
             <StepForm itemId={id} intent="unsold" label="Mark as unsold (write off)" tone="soft" />
             <StepForm itemId={id} intent="donate" label="Donated back to charity" tone="soft" />
           </div>

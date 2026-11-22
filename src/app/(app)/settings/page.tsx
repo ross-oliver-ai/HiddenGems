@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { THEMES, COLOR_MODES } from "@/lib/themes";
-import { ChangePasswordForm } from "@/components/ChangePasswordForm";
-import { ChangeEmailForm } from "@/components/ChangeEmailForm";
 import { UpdateDatabase } from "@/components/UpdateDatabase";
 import { pendingMigrations } from "@/lib/migrations";
 import { updateAppearanceAction, logoutAction } from "./actions";
@@ -67,6 +65,14 @@ export default async function SettingsPage() {
         </div>
       </section>
 
+      <Link href="/settings/account" className="card flex items-center justify-between font-extrabold">
+        Account
+        <span className="flex items-center gap-2 text-sm font-semibold text-muted">
+          Email &amp; password
+          <span aria-hidden className="font-extrabold text-primary">→</span>
+        </span>
+      </Link>
+
       <Link href="/billing" className="card flex items-center justify-between font-extrabold">
         Billing
         <span aria-hidden className="text-primary">→</span>
@@ -93,16 +99,6 @@ export default async function SettingsPage() {
           </section>
         </>
       )}
-
-      <section className="card space-y-3">
-        <h2 className="font-extrabold">Change email</h2>
-        <ChangeEmailForm currentEmail={user.email} />
-      </section>
-
-      <section className="card space-y-3">
-        <h2 className="font-extrabold">Change password</h2>
-        <ChangePasswordForm />
-      </section>
 
       <section className="card space-y-1">
         <p className="font-bold">{user.name}</p>

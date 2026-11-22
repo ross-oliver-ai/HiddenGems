@@ -29,8 +29,8 @@ export default async function ConfirmEmailChangePage({ searchParams }: { searchP
     return (
       <AuthShell title="Link expired" subtitle="That link has expired or was already used.">
         <div className="card space-y-3 text-center">
-          <p className="text-sm text-muted">You can ask for a new one from Settings.</p>
-          <Link href="/settings" className="btn">Go to Settings</Link>
+          <p className="text-sm text-muted">You can ask for a new one from Settings → Account.</p>
+          <Link href="/settings/account" className="btn">Go to Account settings</Link>
         </div>
       </AuthShell>
     );

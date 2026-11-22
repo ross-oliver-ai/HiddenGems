@@ -5,7 +5,7 @@ import { THEMES } from "@/lib/themes";
 
 export const metadata: Metadata = {
   title: "Hidden Gems",
-  description: "Track your charity shop finds and Vinted sales",
+  description: "Track what you buy, list and sell",
   applicationName: "Hidden Gems",
   appleWebApp: { capable: true, title: "Hidden Gems", statusBarStyle: "default" },
 };

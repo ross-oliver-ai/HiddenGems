@@ -119,8 +119,8 @@ export function ItemForm({
             </div>
           </div>
           <div>
-            <label className="label" htmlFor="vintedUrl">Vinted link</label>
-            <input id="vintedUrl" name="vintedUrl" type="url" inputMode="url" defaultValue={values.vintedUrl ?? ""} placeholder="https://www.vinted.co.uk/items/…" className="field" />
+            <label className="label" htmlFor="vintedUrl">Listing link</label>
+            <input id="vintedUrl" name="vintedUrl" type="url" inputMode="url" defaultValue={values.vintedUrl ?? ""} placeholder="https://…" className="field" />
           </div>
         </fieldset>
       )}
