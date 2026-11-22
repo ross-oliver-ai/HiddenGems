@@ -10,18 +10,21 @@ export function StepForm({
   intent,
   label,
   tone = "primary",
+  confirm,
   children,
 }: {
   itemId: number;
   intent: string;
   label: string;
   tone?: "primary" | "soft" | "danger";
+  /** Ask "are you sure?" before running the step */
+  confirm?: string;
   children?: React.ReactNode;
 }) {
   const [state, action] = useActionState<LifecycleState, FormData>(lifecycleAction, {});
   const cls = tone === "primary" ? "btn w-full" : tone === "soft" ? "btn-soft w-full" : "btn-danger w-full";
   return (
-    <form action={action} className="space-y-3">
+    <form action={action} className="space-y-3" onSubmit={(e) => { if (confirm && !window.confirm(confirm)) e.preventDefault(); }}>
       <input type="hidden" name="id" value={itemId} />
       <input type="hidden" name="intent" value={intent} />
       {children}

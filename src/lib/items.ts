@@ -68,3 +68,21 @@ export function parseShowCount(raw: string | undefined): number {
   if (!raw || !Number.isFinite(n)) return PAGE_SIZE;
   return Math.min(Math.max(Math.floor(n), PAGE_SIZE), MAX_SHOWN);
 }
+
+/**
+ * What the Undo button on an item page says, or null when there is nothing to undo.
+ * Only the most recent step can be undone, and undoing a sale needs a confirmation because it clears the sale details.
+ */
+export function undoOption(item: Pick<Item, "status" | "handover">): { label: string; confirm?: string } | null {
+  const inPerson = item.handover === "collected" || item.handover === "delivered";
+  switch (item.status) {
+    case "sold":
+      return { label: "Undo sale", confirm: "Undo this sale? The sold price, fees and postage are cleared and the item goes back on sale." };
+    case "posted":
+      return { label: "Undo: not posted yet" };
+    case "completed":
+      return inPerson ? { label: "Undo: not handed over yet" } : { label: "Undo: back to Posted" };
+    default:
+      return null;
+  }
+}

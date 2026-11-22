@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { categories, items, platforms, postalServices, priceChanges, shops } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { daysBetween, money, shortDate, todayLondon } from "@/lib/format";
-import { isStale, itemProfit } from "@/lib/items";
+import { isStale, itemProfit, undoOption } from "@/lib/items";
 import { HANDOVER_LABEL, activePlatforms, lastUsedPlatformIds, listingsFor } from "@/lib/listings";
 import { StatusPill } from "@/components/StatusPill";
 import { StepForm } from "@/components/ActionForm";
@@ -90,6 +90,7 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
   const stale = isStale(item, user.staleAfterDays);
   const s = item.status;
   const soldish = s === "sold" || s === "posted" || s === "completed";
+  const undo = undoOption(item);
   const daysToSell = item.soldAt ? daysBetween(item.listedAt ?? item.boughtAt, item.soldAt) : null;
   const handedOverKind = item.handover === "collected" || item.handover === "delivered";
 
@@ -228,6 +229,7 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
           </StepForm>
         </Step>
       )}
+      {undo && <StepForm itemId={id} intent="undo" label={undo.label} tone="soft" confirm={undo.confirm} />}
       {s === "returned" && (
         <Step title="Back in stock: list it again" open>
           <StepForm itemId={id} intent="relist" label="List it again">

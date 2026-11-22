@@ -289,6 +289,53 @@ export async function undoSend(userId: number, itemId: number): Promise<Result> 
   return { ok: true };
 }
 
+/**
+ * Undo the most recent step on a sold item, from the item page:
+ * - sold (to send)        -> back to listed again (or to-list if it was never listed): the sale details are cleared and
+ *                            the listings that the sale ended come back
+ * - posted                -> sold
+ * - completed (by post)   -> posted
+ * - completed (in person) -> sold
+ * The listings that come back are the ones the sale ended: those whose end date is the sale date. (If the sale date was
+ * edited afterwards, or another listing was taken off the same day, that can differ; the item then goes back to to-list.)
+ */
+export async function undoLastStep(userId: number, itemId: number): Promise<Result> {
+  return db.transaction(async (tx) => {
+    const item = await loadItem(tx, userId, itemId);
+    if (!item) return fail("Item not found.");
+    const inPerson = item.handover === "collected" || item.handover === "delivered";
+
+    if (item.status === "posted") {
+      await tx.update(items).set({ status: "sold", postedAt: null, updatedAt: new Date() }).where(eq(items.id, itemId));
+      return { ok: true } as Result;
+    }
+    if (item.status === "completed") {
+      if (inPerson) await tx.update(items).set({ status: "sold", postedAt: null, updatedAt: new Date() }).where(eq(items.id, itemId));
+      else await tx.update(items).set({ status: "posted", updatedAt: new Date() }).where(eq(items.id, itemId));
+      return { ok: true } as Result;
+    }
+    if (item.status !== "sold" || !item.soldAt) return fail("There's nothing to undo here.");
+
+    const reopened = await tx
+      .update(listings)
+      .set({ endedAt: null })
+      .where(and(eq(listings.itemId, itemId), eq(listings.endedAt, item.soldAt)))
+      .returning({ id: listings.id });
+    await tx
+      .update(items)
+      .set({
+        status: reopened.length > 0 ? "listed" : "bought",
+        ...(reopened.length > 0 ? {} : { listedAt: null, listPrice: null }),
+        soldAt: null, soldPrice: null, soldPlatformId: null, handover: null, postalServiceId: null,
+        postedAt: null, fees: "0.00", postagePaid: "0.00",
+        updatedAt: new Date(),
+      })
+      .where(eq(items.id, itemId));
+    if (reopened.length > 0) await syncItemFromListings(tx, itemId);
+    return { ok: true } as Result;
+  });
+}
+
 // ---------- Editing details ----------
 
 export type ListingEdit = { listingId: number; price: string | null; url: string | null; listedAt: string | null };

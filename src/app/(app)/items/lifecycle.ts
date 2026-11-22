@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { items, type ItemStatus } from "@/db/schema";
 import { requireWritableUser } from "@/lib/auth";
 import { parseMoney, parseOptionalMoney, todayLondon } from "@/lib/format";
-import { endListing, listOn, markHandedOver, parseListEntries, reducePrices, sellItem, undoSend, unlistAll, writeOff, type Result } from "@/lib/listings";
+import { endListing, listOn, markHandedOver, parseListEntries, reducePrices, sellItem, undoLastStep, undoSend, unlistAll, writeOff, type Result } from "@/lib/listings";
 
 export type LifecycleState = { error?: string; ok?: boolean };
 
@@ -26,6 +26,7 @@ const FROM: Record<string, ItemStatus[]> = {
   post: ["sold"],
   handover: ["sold"],
   undosend: ["posted", "completed"],
+  undo: ["sold", "posted", "completed"],
   complete: ["posted", "sold"],
   return: ["sold", "posted", "completed"],
   relist: ["returned"],
@@ -100,6 +101,9 @@ export async function lifecycleAction(_prev: LifecycleState, formData: FormData)
       break;
     case "undosend":
       state = done(await undoSend(user.id, id));
+      break;
+    case "undo":
+      state = done(await undoLastStep(user.id, id));
       break;
     case "post":
       if (item.handover && item.handover !== "posted") return { error: "This one wasn't posted. Use “Mark as handed over”." };
