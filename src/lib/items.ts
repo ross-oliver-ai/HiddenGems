@@ -57,3 +57,14 @@ export function itemProfit(i: Pick<Item, "status" | "soldPrice" | "buyPrice" | "
 export function isStale(i: Pick<Item, "status" | "listedAt">, staleAfterDays: number): boolean {
   return i.status === "listed" && !!i.listedAt && daysBetween(i.listedAt) >= staleAfterDays;
 }
+
+/** How many items the Items page shows at first, and how many more each "Show more" tap adds */
+export const PAGE_SIZE = 50;
+const MAX_SHOWN = 5000;
+
+/** Reads the `n` (how many to show) from the page address: whole numbers only, never below one page or above the cap */
+export function parseShowCount(raw: string | undefined): number {
+  const n = Number(raw);
+  if (!raw || !Number.isFinite(n)) return PAGE_SIZE;
+  return Math.min(Math.max(Math.floor(n), PAGE_SIZE), MAX_SHOWN);
+}

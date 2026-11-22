@@ -1,17 +1,19 @@
 import Link from "next/link";
-import { and, asc, desc, eq, ilike, inArray, isNull, or, type SQL } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { categories, items, listings, platforms, shops } from "@/db/schema";
-import { alias } from "drizzle-orm/pg-core";
+import { listings, platforms } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { daysBetween, money, todayLondon } from "@/lib/format";
-import { FILTERS, isStale, itemProfit } from "@/lib/items";
+import { FILTERS, PAGE_SIZE, isStale, itemProfit, parseShowCount } from "@/lib/items";
 import { StatusPill } from "@/components/StatusPill";
 import { SearchBox } from "@/components/SearchBox";
 import { SendList } from "@/components/SendList";
 import { toSendGroups } from "@/lib/to-send";
+import { itemList } from "@/lib/item-list";
+import { timed } from "@/lib/timing";
+import { TimingReadout } from "@/components/TimingReadout";
 
-type Params = { f?: string; q?: string };
+type Params = { f?: string; q?: string; n?: string; timing?: string };
 
 /** The filter chips wrap onto a second row so none are hidden off-screen */
 function FilterChips({ active, term }: { active: string; term: string }) {
@@ -33,15 +35,15 @@ function FilterChips({ active, term }: { active: string; term: string }) {
 
 export default async function ItemsPage({ searchParams }: { searchParams: Promise<Params> }) {
   const user = await requireUser();
-  const { f = "all", q = "" } = await searchParams;
+  const { f = "all", q = "", n, timing } = await searchParams;
   const filter = FILTERS.find((x) => x.id === f) ?? FILTERS[0];
-
-  const conds: SQL[] = [eq(items.userId, user.id)];
-  if (filter.statuses) conds.push(inArray(items.status, filter.statuses));
   const term = q.trim().slice(0, 60);
-  if (term) {
-    const like = `%${term.replace(/[%_\\]/g, "\\$&")}%`;
-    conds.push(or(ilike(items.name, like), ilike(items.brand, like), ilike(shops.name, like))!);
+  const show = parseShowCount(n);
+  // Admins can add ?timing=1 to see how long each step took (used to track down slow pages)
+  const showTiming = timing === "1" && user.role === "admin";
+  if (showTiming) {
+    await timed("Database round trip 1 (may include connecting)", () => db.execute(sql`select 1`));
+    await timed("Database round trip 2", () => db.execute(sql`select 1`));
   }
 
   // "To send" is a grouped worklist rather than the usual list of cards
@@ -57,27 +59,18 @@ export default async function ItemsPage({ searchParams }: { searchParams: Promis
     );
   }
 
-  const soldPlatform = alias(platforms, "sold_platform");
-  const rows = await db
-    .select({ item: items, shop: shops.name, category: categories.name, soldOn: soldPlatform.name })
-    .from(items)
-    .leftJoin(soldPlatform, eq(items.soldPlatformId, soldPlatform.id))
-    .leftJoin(shops, eq(items.shopId, shops.id))
-    .leftJoin(categories, eq(items.categoryId, categories.id))
-    .where(and(...conds))
-    .orderBy(desc(items.createdAt))
-    .limit(200);
+  const { rows, total } = await timed("Items and count", () => itemList({ userId: user.id, statuses: filter.statuses, term, show }));
 
   // Live platforms for the listed items on this page
   const listedIds = rows.filter((r) => r.item.status === "listed").map((r) => r.item.id);
   const liveOn = new Map<number, string[]>();
   if (listedIds.length) {
-    const live = await db
+    const live = await timed("Live platforms", () => db
       .select({ itemId: listings.itemId, name: platforms.name })
       .from(listings)
       .innerJoin(platforms, eq(listings.platformId, platforms.id))
       .where(and(inArray(listings.itemId, listedIds), isNull(listings.endedAt)))
-      .orderBy(asc(platforms.id));
+      .orderBy(asc(platforms.id)));
     for (const l of live) liveOn.set(l.itemId, [...(liveOn.get(l.itemId) ?? []), l.name]);
   }
 
@@ -143,6 +136,20 @@ export default async function ItemsPage({ searchParams }: { searchParams: Promis
           })}
         </ul>
       )}
+
+      {total > rows.length && (
+        <div className="space-y-2 text-center">
+          <p className="text-sm text-muted">Showing {rows.length} of {total}</p>
+          <Link
+            href={`/items?f=${filter.id}${term ? `&q=${encodeURIComponent(term)}` : ""}&n=${rows.length + PAGE_SIZE}`}
+            scroll={false}
+            className="btn-soft inline-flex"
+          >
+            Show more
+          </Link>
+        </div>
+      )}
+      {showTiming && <TimingReadout />}
     </div>
   );
 }

@@ -44,6 +44,7 @@ A mobile-first web app for resellers: record what you buy, list, sell and post, 
 | Preview deployments | Off (Ignored Build Step = Only build production) |
 | Multi-platform selling (platforms, listings, sold on, handover) | Built (PR 2); existing items were copied across by migration `0007`. Fees and postage paid are built too (PR 3, below). Reports by platform and by handover method are built too (PR 4, below). Not yet verified on the live site |
 | Fees and postage paid (per-platform fee %, fees and postage on each sale, profit after both) | Built (PR 3). Not yet verified on the live site |
+| Loading placeholders and "Show more" on Items (PR #32) | Built. Not yet verified on the live site. Items load 50 at a time; an admin-only timing readout is there to find out why pages feel slow |
 | Automated tests | GitHub runs them on every pull request and on `main` (billing rules, report maths, migrations, a browser run through the core journey). See [Tests](#tests) |
 | Trial-reminder emails (daily cron) | Built; first scheduled run not yet confirmed in Vercel's logs |
 
@@ -56,7 +57,9 @@ A mobile-first web app for resellers: record what you buy, list, sell and post, 
 ## 2. What the app does
 
 ### For sellers
-- **Items.** Each item records name, brand, size, condition, notes, photo, category, where it was bought, buy price and date. Search as you type (name, brand, shop) and filter chips (wrapped onto two rows so none are hidden off-screen): All, In stock, To list, Listed, To send, Sold, Returned/unsold. List cards show small platform tags (where it is live, or where it sold).
+- **Items.** Each item records name, brand, size, condition, notes, photo, category, where it was bought, buy price and date. Search as you type (name, brand, shop) and filter chips (wrapped onto two rows so none are hidden off-screen): All, In stock, To list, Listed, To send, Sold, Returned/unsold. List cards show small platform tags (where it is live, or where it sold). The list shows the newest **50** items; below them a "Showing 50 of 212" line and a **Show more** button add 50 at a time (the count is kept in the address as `n`, so Back from an item returns to the same place; search and the filter chips start again at 50). The line and button only appear when there are more to show. The total respects the filter and search.
+- **Loading placeholders.** Every page in the app has a `loading.tsx`: greyed-out shapes that look like the real page (item cards on Items, tiles and a chart on Reports, a photo block on an item) with one small spinning gem (it stands still if the phone is set to reduce motion). They appear straight away when a link is tapped, while the data loads.
+- **Timing readout (admin only).** Add `?timing=1` to `/items` while signed in as an admin to see how long each step took (sign-in check, two database round trips, the items query, live platforms). For tracking down slow pages; it is not shown to anyone else.
 - **To send.** The "To send" chip (and the Home "To send" tile, which opens it directly) shows everything sold but not yet posted or handed over as a worklist grouped by how it goes: one group per postal service the seller has set up (A to Z, hidden services still appear while parcels wait), then No service chosen, Collection, Delivery and No method set. Empty groups are hidden; the longest-waiting sale is first. Each row shows the photo, name, the platform it sold on and how long ago it sold, with one-tap **Mark as posted** (postal) or **Mark as handed over** (collection and delivery), using today's date (change it from the item page if needed). A "marked as posted · Undo" bar stays for 10 seconds after a tick and puts the item back to "sold, to send". Search works inside it. Uses the same step rules as the item page; no database change.
 - **Lifecycle** (see the diagram in [Data model](#5-data-model)). Bought → Listed → Sold → Posted → Completed, plus Returned (with refund amount), Unsold and Donated. Each step asks only for what it needs and validates (for example, you can't list before you bought).
 - **Selling on several platforms.** Each seller has a list of platforms (defaults Vinted, eBay, Depop, Facebook Marketplace, Gumtree). Listing an item means choosing one or more platforms, each with its own price (a new platform starts at the first platform's price; change it only if different) and an optional link. "Also list on…" adds platforms later; "Take off X" ends one listing; "Take off everywhere" puts it back to to-list. Price reductions are per platform and kept as history.
@@ -139,6 +142,7 @@ src/
     (app)/                     signed-in app
       page.tsx                 home dashboard
       items/                   list, new, [id] detail, actions.ts, lifecycle.ts (step router)
+      loading.tsx              placeholder shown while any page loads; items/, items/[id]/ and reports/ have their own
       reports/                 page + export/route.ts (CSV)
       settings/                page (short menu), actions, account/ (change email, change password), platforms/ (platforms, postal), lists/ (shops, categories; holds the shared list actions), targets/ (goal, stale days)
       billing/                 page + actions (Checkout, Customer portal)
@@ -150,7 +154,7 @@ src/
     login/ signup/ verify/ forgot-password/ reset-password/
     change-password/ change-email/ confirm-email-change/ setup/
     welcome/ (landing)  terms/  privacy/  manifest.ts  icons
-  components/                  shared UI (forms, charts, banner, pickers, PlatformPicker, SellFields, …)
+  components/                  shared UI (forms, charts, banner, pickers, PlatformPicker, SellFields, Loading placeholders, TimingReadout, …)
   db/  schema.ts index.ts      Drizzle schema and pooled connection
   lib/
     auth.ts session.ts password.ts   sessions, guards, hashing
@@ -158,6 +162,8 @@ src/
     email.ts authEmails.ts trialEmails.ts emailChange.ts tokens.ts
     listings.ts listing-labels.ts    platforms, listings, selling, handover and undo logic (all DB rules live here; tests cover it)
     to-send.ts send-groups.ts        the To send worklist: the query, and the grouping (pure, no database)
+    item-list.ts                     the Items list query: newest N matching items plus the total count (paging is in items.ts: PAGE_SIZE, parseShowCount)
+    timing.ts                        timed() notes how long a step took, per request (for the admin timing readout)
     items.ts reports.ts periods.ts queries.ts format.ts defaults.ts themes.ts migrations.ts
 scripts/  build-migrate.ts migrate.ts seed-admin.ts
 tests/    *.test.ts (unit + database tests), e2e/journey.ts (browser), helpers/testdb.ts
@@ -407,10 +413,11 @@ npm run dev
 - `tests/migrations.test.ts`: every migration applies in order to an empty database, with the expected tables, defaults, enum values and cascade deletes.
 - `tests/listings.test.ts`: listing on several platforms, per-platform prices and reductions, taking listings off, selling (platform, handover, ends other listings, completes only once handed over), relisting, editing listings, and another account's data never being touched.
 - `tests/to-send.test.ts`: the To send grouping (groups follow the services the seller has, A to Z; fixed groups after; empty groups hidden; longest-waiting first; every item in exactly one group), which items appear (only sold ones, never another account's, hidden services still shown, search), and Undo (posted and handed-over steps only, never a completed postal sale, never another account's item).
+- `tests/item-list.test.ts`: the Items list: the first page is the newest 50 with the true total, "Show more" reaches older items until the oldest is visible, filters and search count only their matches (name, brand or shop), another account's items are never shown or counted, and the `n` in the address is read safely (whole numbers, at least one page, capped at 5000).
 - `tests/platform-reports.test.ts`: the platform and handover reports with hand-checkable numbers (profit, sold, average days, sell-through with a relisted item counted once, sales with no platform shown as "Not set", platform profits adding up to the sales profit, empty periods, another account's sales never appearing).
 - `tests/fees.test.ts`: profit after fees and postage in the reports (revenue, fees, margin, return on cost, average profit, best/worst), a fee landing in the month of the sale rather than a later return, the report agreeing with each item's own profit, another account's fees never leaking, and migration `0008` leaving old items unchanged with 0 fees. `tests/helpers.test.ts` also covers `itemProfit()` with fees, returns and penny rounding, and `parseOptionalMoney()`.
 - `tests/backfill.test.ts`: migration `0007` applied to old-style items (bought, listed, completed, returned, unsold, direct sale) leaves every old column unchanged and fills the new tables correctly.
-- `tests/e2e/journey.ts`: in a phone-sized browser: sign in, wrong password refused, add an item, list it on one platform then add a second, sell it on the second (listings end, platform and handover saved), a collected item that only completes once handed over, set a platform's fee %, sell with the fee pre-filled and postage paid, see the profit after both, see it in reports and the CSV, Settings → Platforms & postage, Settings → Account, another account can't open the item (404), an expired trial is read-only (can view and export, can't add), signed-out visitors are sent to sign in.
+- `tests/e2e/journey.ts`: in a phone-sized browser: sign in, wrong password refused, add an item, list it on one platform then add a second, sell it on the second (listings end, platform and handover saved), a collected item that only completes once handed over, set a platform's fee %, sell with the fee pre-filled and postage paid, see the profit after both, see it in reports and the CSV, Settings → Platforms & postage, Settings → Account, another account can't open the item (shows "not found" and nothing of the item), an expired trial is read-only (can view and export, can't add), signed-out visitors are sent to sign in.
 
 **Not covered yet** (checked by hand in Stripe sandbox instead): the Stripe webhook and checkout paths, the email flows (confirm, reset, change email), the admin pages, and the daily trial-reminder cron.
 
@@ -425,7 +432,7 @@ npm run test:e2e         # resets the test database, then drives the app on :310
 ```
 Without `TEST_DATABASE_URL` the database tests are **skipped with a message**, not silently passed. The helper refuses to run if the database name doesn't contain `test`.
 
-**Keeping tests honest.** A test that can't fail is worthless, so when adding one, break the code on purpose once to see it fail. (This was done for the first set: ignoring refunds, leaking another account's data, a longer grace period, a trial ending a day late and wrong profit maths were each caught; and for the listing logic: a sale not ending listings, the sold platform not being stored, and relist keeping the old sold platform; and for To send: newest-first ordering, collection landing in the wrong group, posted items leaking in, another account's items leaking, undo allowed on a completed postal sale, and empty groups showing; and for the platform reports: platform profit ignoring fees, sell-through counting a sale elsewhere, listings outside the period counted, wrong average days, handover profit ignoring fees, and a missing platform dropped instead of shown as "Not set"; and for fees: ignoring postage paid, ignoring fees on a returned item, reports or margin ignoring fees, a sale not storing its fees, and relist keeping them.)
+**Keeping tests honest.** A test that can't fail is worthless, so when adding one, break the code on purpose once to see it fail. (This was done for the first set: ignoring refunds, leaking another account's data, a longer grace period, a trial ending a day late and wrong profit maths were each caught; and for the listing logic: a sale not ending listings, the sold platform not being stored, and relist keeping the old sold platform; and for To send: newest-first ordering, collection landing in the wrong group, posted items leaking in, another account's items leaking, undo allowed on a completed postal sale, and empty groups showing; and for the platform reports: platform profit ignoring fees, sell-through counting a sale elsewhere, listings outside the period counted, wrong average days, handover profit ignoring fees, and a missing platform dropped instead of shown as "Not set"; and for fees: ignoring postage paid, ignoring fees on a returned item, reports or margin ignoring fees, a sale not storing its fees, and relist keeping them; and for the Items list: no limit, a total that ignored the search, another account's items leaking, oldest-first order, and no cap on the number shown.)
 
 ---
 
@@ -440,6 +447,8 @@ Without `TEST_DATABASE_URL` the database tests are **skipped with a message**, n
 - **Test files run one at a time** (`--test-concurrency=1` in `npm test`) because they all share one throwaway database and several reset it; running them in parallel made them wipe each other's tables on GitHub.
 - **Tests wipe their database.** Only ever point `TEST_DATABASE_URL` at a throwaway database. When behaviour changes, update the tests in the same PR; when adding logic that handles money, access or data, add a test for it.
 - **Listings are the source of truth for what is on sale.** `items.listed_at` / `list_price` are only a summary and must be changed through `src/lib/listings.ts` (never directly), or the summary and the listings drift apart. New users get their platforms from `seedUserDefaults` (sign-up and admin create-user both call it).
+- **Pages now stream.** Because pages have a `loading.tsx`, the placeholder is sent first and the real page replaces it. Two visible effects: a missing or someone else's item now returns HTTP 200 showing Next's "could not be found" message (not a hard 404; nothing of the item is sent), and a redirect from a page (for example a locked account opening Add item) happens just after the placeholder appears. The browser test waits for the redirect and checks the page text for this reason.
+- **Slow pages: measure first.** Sign in as an admin and open `/items?timing=1` on the live site. "Database round trip 1" includes opening a connection to Railway, round trip 2 is the plain distance; a big gap between them would point at the connection pool closing idle connections after 10 seconds (`src/db/index.ts`), which is a guess, not yet verified. Vercel (Ireland) and Railway (EU West, Netherlands) are close, so distance alone is unlikely to be the cause.
 - **Rate-limit counts** for emails use tokens created in the last hour, whether or not they were used.
 - **Keep this README current.** Every change that affects what's described here updates the README in the same pull request; `CLAUDE.md` has the checklist, and each PR description says which sections changed (or "No README impact").
 - **Ways of working.** The owner is a product manager building this from a phone: changes are made by Claude (Claude Code) in a sandbox, opened as a pull request, and **merged only when the owner says "merge"**. Keep changes small, one PR per idea, with a plain-English description and what was tested. Don't add unrequested features; propose them and wait.
@@ -470,6 +479,7 @@ Without `TEST_DATABASE_URL` the database tests are **skipped with a message**, n
 | #29 | Reports by selling platform (profit, sold, average days to sell, sell-through) and by handover method; CSV "Sold on" and "How it got there" columns. No migration |
 | #30 | The handover chart shows profit (with the number sold beside each bar) instead of only the count, because its subtitle promised profit. No migration |
 | #31 | "To send" worklist: chips wrap to two rows, a To send view groups waiting parcels by postal service plus Collection and Delivery, one-tap Mark as posted / handed over with Undo, the Home tile opens it. No migration |
+| #32 | Items page: greyed-out loading placeholders with a spinning gem on every page, "Show more" (50 at a time with a "Showing X of N" count, replacing the hidden 200-item limit), and an admin-only `?timing=1` readout. Pages now stream, so a missing item shows "not found" with status 200. No migration |
 | Launch prep | Domain `hiddengemsapp.co.uk`, `APP_URL`, webhook moved to the new domain; preview builds switched off; database password rotated |
 
 ---
@@ -490,6 +500,10 @@ Without `TEST_DATABASE_URL` the database tests are **skipped with a message**, n
 - PR 2 (built, #27): per-user **platforms** list (defaults Vinted, eBay, Depop, Facebook Marketplace, Gumtree); an item can have several **listings**, each with its own price (new platforms default to the first price) and optional link; the sell step records **sold on** and **how it was handed over** (by post / collected by buyer / I delivered it). Collected and delivered items go straight to completed once handed over (an "Already handed over" tick, on by default; unticked they wait as sold with a "Mark as handed over" button). Price reductions are per platform. Settings is split into short pages (Platforms & postage, Shops & categories, Targets). The migration only adds tables and columns and copies existing items into them (every existing item becomes a Vinted listing); original columns are left untouched.
 - PR 3 (built, #28): **fees** (optional per-platform fee %, default 0, set by the user; the sell step pre-fills an editable £ amount stored on the sale; editable on returned items) and **postage/delivery I paid**. Net profit = sold price − refund − fees − postage paid − cost; fees count in the month of the sale; old sales have none, so past numbers don't change.
 - PR 4 (built, #29): reports **by platform** (profit, sold, average days to sell, sell-through) and **by handover method**, plus the CSV columns.
+
+**Speed**
+- [ ] Open `/items?timing=1` as an admin on the live site and read the numbers (round trip 1 versus 2, items query); decide whether anything else needs fixing. Remove the readout afterwards if it isn't useful.
+- No index was added for the Items list: at a few thousand items per account the existing `(user_id, status)` index is enough. Revisit if the "Items and count" timing grows.
 
 **Product ideas offered but not started**
 - Account deletion and a fuller data export in Settings.
