@@ -31,6 +31,7 @@ export const FILTERS: { id: string; label: string; statuses: ItemStatus[] | null
   { id: "stock", label: "In stock", statuses: ["bought", "listed"] },
   { id: "bought", label: "To list", statuses: ["bought"] },
   { id: "listed", label: "Listed", statuses: ["listed"] },
+  { id: "send", label: "To send", statuses: ["sold"] },
   { id: "sold", label: "Sold", statuses: ["sold", "posted", "completed"] },
   { id: "other", label: "Returned / unsold", statuses: ["returned", "unsold", "donated"] },
 ];

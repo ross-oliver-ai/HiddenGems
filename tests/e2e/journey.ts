@@ -154,6 +154,25 @@ async function main() {
     const done = (await pool.query("select status from items where id=$1", [boots2.id])).rows[0];
     check("handing it over completes the sale", done.status === "completed", JSON.stringify(done));
 
+    // the To send worklist: Home links to it, parcels are grouped, a tick moves one on and Undo brings it back
+    await page.goto(`${BASE}/`);
+    check("the Home 'To send' tile opens the To send view", (await page.locator("a[href='/items?f=send']").count()) >= 1);
+    await page.goto(`${BASE}/items?f=send`);
+    const sendText = await body(page);
+    check("To send lists the waiting parcel under its group", sendText.includes("No service chosen") && sendText.includes("Journey boots") && sendText.includes("Mark as posted"), sendText.slice(0, 400));
+    check("...and nothing that has already been handed over", !sendText.includes("Collected lamp"));
+    await page.click("button:has-text('Mark as posted')");
+    await page.waitForTimeout(2000);
+    check("ticking it off marks it posted", (await pool.query("select status from items where id=$1", [id])).rows[0].status === "posted");
+    check("...and offers Undo, with the list now empty", (await page.locator("button:has-text('Undo')").count()) === 1 && (await body(page)).includes("Nothing waiting to be sent"));
+    await page.click("button:has-text('Undo')");
+    await page.waitForTimeout(2000);
+    const undone = (await pool.query("select status, posted_at from items where id=$1", [id])).rows[0];
+    check("Undo puts it back to 'sold' with no posted date", undone.status === "sold" && undone.posted_at === null, JSON.stringify(undone));
+    await page.goto(`${BASE}/items`);
+    const chipBoxes = await page.locator("a[href^='/items?f=']").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
+    check("the filter chips wrap onto two rows instead of scrolling", new Set(chipBoxes).size === 2, JSON.stringify(chipBoxes));
+
     // reports and CSV
     await page.goto(`${BASE}/reports?p=all`);
     await page.waitForTimeout(1500); // the charts draw in the browser after the page loads
