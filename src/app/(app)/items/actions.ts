@@ -5,10 +5,11 @@ import { redirect } from "next/navigation";
 import { and, eq, sql } from "drizzle-orm";
 import { del } from "@vercel/blob";
 import { db } from "@/db";
-import { items, shops } from "@/db/schema";
+import { items, platforms, shops } from "@/db/schema";
 import { requireWritableUser } from "@/lib/auth";
 import { parseMoney, todayLondon } from "@/lib/format";
 import { CONDITIONS } from "@/lib/items";
+import { cleanUrl, editListings, isHandover, type ListingEdit } from "@/lib/listings";
 
 export type ItemState = { error?: string };
 
@@ -117,13 +118,12 @@ export async function updateItemAction(_prev: ItemState, formData: FormData): Pr
   };
 
   // Stage-specific fields are only present on the form when the item has reached that stage
-  if (formData.has("listedAt")) {
-    const listedAt = date(formData.get("listedAt"));
-    const listPrice = parseMoney(formData.get("listPrice"));
-    if (!listedAt || listPrice === null) return { error: "Check the listing date and price." };
-    patch.listedAt = listedAt;
-    patch.listPrice = listPrice;
-    patch.vintedUrl = str(formData.get("vintedUrl"), 300);
+  const listingIds = formData.getAll("listingIds").map(Number).filter((n) => Number.isInteger(n) && n > 0);
+  const edits: ListingEdit[] = [];
+  for (const lid of listingIds) {
+    const url = cleanUrl(formData.get(`listing_${lid}_url`));
+    if (url === undefined) return { error: "Listing links must start with http:// or https://" };
+    edits.push({ listingId: lid, price: parseMoney(formData.get(`listing_${lid}_price`)), url, listedAt: date(formData.get(`listing_${lid}_date`)) });
   }
   if (formData.has("soldAt")) {
     const soldAt = date(formData.get("soldAt"));
@@ -131,10 +131,26 @@ export async function updateItemAction(_prev: ItemState, formData: FormData): Pr
     if (!soldAt || soldPrice === null) return { error: "Check the sold date and price." };
     patch.soldAt = soldAt;
     patch.soldPrice = soldPrice;
-    patch.postalServiceId = Number(formData.get("postalServiceId")) || null;
+
+    const platformId = Number(formData.get("soldPlatformId")) || null;
+    if (platformId) {
+      const [own] = await db.select({ id: platforms.id }).from(platforms).where(and(eq(platforms.id, platformId), eq(platforms.userId, user.id))).limit(1);
+      if (!own) return { error: "Unknown platform." };
+    }
+    patch.soldPlatformId = platformId;
+
+    const handoverRaw = formData.get("handover");
+    const handover = isHandover(handoverRaw) ? handoverRaw : null;
+    patch.handover = handover;
+    // Postage only applies to posted items
+    patch.postalServiceId = handover === "posted" || handover === null ? Number(formData.get("postalServiceId")) || null : null;
   }
   if (formData.has("postedAt")) patch.postedAt = date(formData.get("postedAt"));
 
+  if (edits.length) {
+    const r = await editListings(user.id, id, edits);
+    if ("error" in r) return { error: r.error };
+  }
   await db.update(items).set(patch).where(eq(items.id, id));
   if (item.photoUrl && item.photoUrl !== patch.photoUrl) await removeBlob(item.photoUrl);
 

@@ -78,8 +78,18 @@ export default async function SettingsPage() {
         <span aria-hidden className="text-primary">→</span>
       </Link>
 
+      <Link href="/settings/platforms" className="card flex items-center justify-between font-extrabold">
+        Platforms & postage
+        <span aria-hidden className="text-primary">→</span>
+      </Link>
+
       <Link href="/settings/lists" className="card flex items-center justify-between font-extrabold">
-        Shops, categories & postage
+        Shops & categories
+        <span aria-hidden className="text-primary">→</span>
+      </Link>
+
+      <Link href="/settings/targets" className="card flex items-center justify-between font-extrabold">
+        Targets
         <span aria-hidden className="text-primary">→</span>
       </Link>
 

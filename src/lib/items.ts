@@ -4,7 +4,7 @@ import { daysBetween } from "./format";
 export const STATUS_LABEL: Record<ItemStatus, string> = {
   bought: "To list",
   listed: "Listed",
-  sold: "Sold, to post",
+  sold: "Sold, to send",
   posted: "Posted",
   completed: "Completed",
   returned: "Returned",

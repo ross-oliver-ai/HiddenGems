@@ -12,7 +12,7 @@ export function ListManager({
   hint,
   entries,
 }: {
-  kind: "shops" | "categories" | "postal";
+  kind: "shops" | "categories" | "postal" | "platforms";
   title: string;
   hint: string;
   entries: Entry[];

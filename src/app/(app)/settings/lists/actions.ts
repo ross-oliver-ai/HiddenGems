@@ -3,16 +3,22 @@
 import { revalidatePath } from "next/cache";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { categories, postalServices, shops, users } from "@/db/schema";
+import { categories, platforms, postalServices, shops, users } from "@/db/schema";
 import { requireWritableUser } from "@/lib/auth";
 
 export type ListState = { error?: string };
 
-const TABLES = { shops, categories, postal: postalServices } as const;
+function revalidateSettingsLists() {
+  revalidatePath("/settings/lists");
+  revalidatePath("/settings/platforms");
+  revalidatePath("/settings/targets");
+}
+
+const TABLES = { shops, categories, postal: postalServices, platforms } as const;
 type Kind = keyof typeof TABLES;
 
 function kindOf(v: FormDataEntryValue | null): Kind | null {
-  return v === "shops" || v === "categories" || v === "postal" ? v : null;
+  return v === "shops" || v === "categories" || v === "postal" || v === "platforms" ? v : null;
 }
 
 export async function addEntryAction(_prev: ListState, formData: FormData): Promise<ListState> {
@@ -32,7 +38,7 @@ export async function addEntryAction(_prev: ListState, formData: FormData): Prom
   if (dupe) return { error: "You already have one with that name." };
 
   await db.insert(t).values({ userId: user.id, name });
-  revalidatePath("/settings/lists");
+  revalidateSettingsLists();
   return {};
 }
 
@@ -44,7 +50,7 @@ export async function renameEntryAction(formData: FormData) {
   if (!kind || !Number.isInteger(id) || !name) return;
   const t = TABLES[kind];
   await db.update(t).set({ name }).where(and(eq(t.id, id), eq(t.userId, user.id)));
-  revalidatePath("/settings/lists");
+  revalidateSettingsLists();
 }
 
 export async function toggleArchiveAction(formData: FormData) {
@@ -56,7 +62,7 @@ export async function toggleArchiveAction(formData: FormData) {
   const [row] = await db.select().from(t).where(and(eq(t.id, id), eq(t.userId, user.id))).limit(1);
   if (!row) return;
   await db.update(t).set({ archived: !row.archived }).where(eq(t.id, id));
-  revalidatePath("/settings/lists");
+  revalidateSettingsLists();
 }
 
 export async function updateTargetsAction(_prev: ListState & { ok?: boolean }, formData: FormData) {

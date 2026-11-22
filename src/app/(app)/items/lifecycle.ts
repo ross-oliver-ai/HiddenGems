@@ -3,9 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { items, postalServices, priceChanges, type ItemStatus } from "@/db/schema";
+import { items, type ItemStatus } from "@/db/schema";
 import { requireWritableUser } from "@/lib/auth";
 import { parseMoney, todayLondon } from "@/lib/format";
+import { endListing, listOn, markHandedOver, parseListEntries, reducePrices, sellItem, unlistAll, writeOff, type Result } from "@/lib/listings";
 
 export type LifecycleState = { error?: string; ok?: boolean };
 
@@ -18,9 +19,12 @@ const date = (v: FormDataEntryValue | null) => {
 // Which statuses each step may start from
 const FROM: Record<string, ItemStatus[]> = {
   list: ["bought"],
+  listmore: ["listed"],
   reduce: ["listed"],
+  endlisting: ["listed"],
   sell: ["listed", "bought"],
   post: ["sold"],
+  handover: ["sold"],
   complete: ["posted", "sold"],
   return: ["sold", "posted", "completed"],
   relist: ["returned"],
@@ -29,6 +33,8 @@ const FROM: Record<string, ItemStatus[]> = {
   reopen: ["unsold", "donated"],
   unlist: ["listed"],
 };
+
+const done = (r: Result): LifecycleState => ("error" in r ? { error: r.error } : { ok: true });
 
 export async function lifecycleAction(_prev: LifecycleState, formData: FormData): Promise<LifecycleState> {
   const user = await requireWritableUser();
@@ -45,39 +51,48 @@ export async function lifecycleAction(_prev: LifecycleState, formData: FormData)
   const set = (patch: Partial<typeof items.$inferInsert>) =>
     db.update(items).set({ ...patch, updatedAt: new Date() }).where(eq(items.id, id));
 
+  let state: LifecycleState = { ok: true };
   switch (intent) {
-    case "list": {
-      const price = parseMoney(formData.get("price"));
-      if (price === null) return { error: "Enter your asking price." };
-      if (when < item.boughtAt) return { error: "You can't list it before you bought it." };
-      const url = String(formData.get("url") ?? "").trim();
-      await set({ status: "listed", listedAt: when, listPrice: price, vintedUrl: url || null });
+    case "list":
+    case "listmore":
+    case "relist": {
+      const entries = parseListEntries(formData, parseMoney);
+      if ("error" in entries) return entries;
+      state = done(await listOn(user.id, id, entries, when, intent === "list" ? "list" : intent === "listmore" ? "more" : "relist"));
       break;
     }
     case "reduce": {
-      const price = parseMoney(formData.get("price"));
-      if (price === null) return { error: "Enter the new price." };
-      if (item.listPrice === price) return { error: "That's the same as the current price." };
-      await db.insert(priceChanges).values({ itemId: id, changedAt: when, oldPrice: item.listPrice ?? price, newPrice: price });
-      await set({ listPrice: price });
-      break;
-    }
-    case "sell": {
-      const price = parseMoney(formData.get("price"));
-      if (price === null) return { error: "Enter what it sold for." };
-      if (when < item.boughtAt) return { error: "You can't sell it before you bought it." };
-      const postalId = Number(formData.get("postalServiceId")) || null;
-      if (postalId) {
-        const [ok] = await db
-          .select({ id: postalServices.id })
-          .from(postalServices)
-          .where(and(eq(postalServices.id, postalId), eq(postalServices.userId, user.id)));
-        if (!ok) return { error: "Unknown postal service." };
+      const prices = new Map<number, string | null>();
+      for (const [key, value] of formData.entries()) {
+        const m = /^price_(\d+)$/.exec(key);
+        if (m) prices.set(Number(m[1]), parseMoney(value));
       }
-      await set({ status: "sold", soldAt: when, soldPrice: price, postalServiceId: postalId });
+      state = done(await reducePrices(user.id, id, prices, when));
       break;
     }
+    case "endlisting":
+      state = done(await endListing(user.id, id, Number(formData.get("listingId")), when));
+      break;
+    case "unlist":
+      state = done(await unlistAll(user.id, id, today));
+      break;
+    case "sell":
+      state = done(
+        await sellItem(user.id, id, {
+          platformId: Number(formData.get("platformId")),
+          price: parseMoney(formData.get("price")),
+          when,
+          handover: String(formData.get("handover") ?? ""),
+          postalServiceId: Number(formData.get("postalServiceId")) || null,
+          handedOver: formData.get("handedOver") === "1",
+        }),
+      );
+      break;
+    case "handover":
+      state = done(await markHandedOver(user.id, id, when));
+      break;
     case "post":
+      if (item.handover && item.handover !== "posted") return { error: "This one wasn't posted. Use “Mark as handed over”." };
       await set({ status: "posted", postedAt: when });
       break;
     case "complete":
@@ -89,36 +104,18 @@ export async function lifecycleAction(_prev: LifecycleState, formData: FormData)
       await set({ status: "returned", returnedAt: when, refundAmount: refund });
       break;
     }
-    case "relist": {
-      const price = parseMoney(formData.get("price"));
-      if (price === null) return { error: "Enter your new asking price." };
-      await set({
-        status: "listed",
-        listedAt: when,
-        listPrice: price,
-        soldAt: null,
-        soldPrice: null,
-        postedAt: null,
-        returnedAt: null,
-        refundAmount: null,
-        postalServiceId: null,
-      });
-      break;
-    }
-    case "unlist":
-      await set({ status: "bought", listedAt: null, listPrice: null, vintedUrl: null });
-      break;
     case "unsold":
-      await set({ status: "unsold" });
+      state = done(await writeOff(user.id, id, "unsold", today));
       break;
     case "donate":
-      await set({ status: "donated" });
+      state = done(await writeOff(user.id, id, "donated", today));
       break;
     case "reopen":
-      await set({ status: "bought", listedAt: null, listPrice: null, vintedUrl: null });
+      await set({ status: "bought", listedAt: null, listPrice: null });
       break;
   }
 
+  if (state.error) return state;
   revalidatePath("/items");
   revalidatePath(`/items/${id}`);
   revalidatePath("/");

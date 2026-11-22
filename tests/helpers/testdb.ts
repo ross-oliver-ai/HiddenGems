@@ -5,6 +5,7 @@
 import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
+import { readdirSync, readFileSync } from "node:fs";
 
 export const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
 
@@ -38,4 +39,36 @@ export function pointAppAtTestDatabase(): string {
   assertSafeTestUrl(TEST_DATABASE_URL);
   process.env.DATABASE_URL = TEST_DATABASE_URL;
   return TEST_DATABASE_URL;
+}
+
+/** Applies migration files by number (inclusive range) straight from the drizzle folder, so a test can stop part-way and
+ *  put realistic "old" data in place before the next migration runs. Only for tests. */
+export async function applyMigrationFiles(url: string, from: number, to: number): Promise<void> {
+  assertSafeTestUrl(url);
+  const files = readdirSync("./drizzle").filter((f) => /^\d{4}_.*\.sql$/.test(f)).sort();
+  const pool = new Pool({ connectionString: url, max: 1 });
+  try {
+    for (const f of files) {
+      const n = Number(f.slice(0, 4));
+      if (n < from || n > to) continue;
+      for (const stmt of readFileSync(`./drizzle/${f}`, "utf8").split("--> statement-breakpoint")) {
+        if (stmt.trim()) await pool.query(stmt);
+      }
+    }
+  } finally {
+    await pool.end();
+  }
+}
+
+/** Empties the test database without migrating (for tests that apply migrations themselves). */
+export async function resetEmpty(url: string): Promise<void> {
+  assertSafeTestUrl(url);
+  const pool = new Pool({ connectionString: url, max: 1 });
+  try {
+    await pool.query("drop schema if exists public cascade");
+    await pool.query("drop schema if exists drizzle cascade");
+    await pool.query("create schema public");
+  } finally {
+    await pool.end();
+  }
 }

@@ -1,11 +1,13 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { createItemAction, updateItemAction, type ItemState } from "@/app/(app)/items/actions";
 import { SubmitButton } from "./SubmitButton";
 import { PhotoPicker } from "./PhotoPicker";
 import { ShopPicker } from "./ShopPicker";
 import { CONDITIONS } from "@/lib/items";
+import { HANDOVERS, HANDOVER_LABEL } from "@/lib/listing-labels";
+import type { Handover } from "@/db/schema";
 
 export type ItemFormValues = {
   id?: number;
@@ -20,11 +22,11 @@ export type ItemFormValues = {
   notes?: string | null;
   photoUrl?: string | null;
   // stage-specific (edit only)
-  listedAt?: string | null;
-  listPrice?: string | null;
-  vintedUrl?: string | null;
+  listings?: { id: number; platform: string; price: string; url: string | null; listedAt: string; ended: boolean }[];
   soldAt?: string | null;
   soldPrice?: string | null;
+  soldPlatformId?: number | null;
+  handover?: Handover | null;
   postalServiceId?: number | null;
   postedAt?: string | null;
 };
@@ -37,15 +39,18 @@ export function ItemForm({
   shops,
   categories,
   postalServices = [],
+  platforms = [],
 }: {
   mode: "create" | "edit";
   values: ItemFormValues;
   shops: string[];
   categories: Opt[];
   postalServices?: Opt[];
+  platforms?: Opt[];
 }) {
   const [state, action] = useActionState<ItemState, FormData>(mode === "create" ? createItemAction : updateItemAction, {});
   const edit = mode === "edit";
+  const [handover, setHandover] = useState<Handover | "">(values.handover ?? "");
   return (
     <form action={action} className="space-y-4">
       {edit && <input type="hidden" name="id" value={values.id} />}
@@ -105,23 +110,29 @@ export function ItemForm({
         <textarea id="notes" name="notes" rows={2} maxLength={500} defaultValue={values.notes ?? ""} placeholder="Flaws, where it's stored, ideas…" className="field" />
       </div>
 
-      {edit && values.listedAt && (
+      {edit && values.listings && values.listings.length > 0 && (
         <fieldset className="space-y-3 rounded-2xl bg-surface-2 p-3">
-          <legend className="px-1 text-sm font-extrabold">Listing</legend>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label" htmlFor="listedAt">Date listed</label>
-              <input id="listedAt" name="listedAt" type="date" required defaultValue={values.listedAt} className="field" />
+          <legend className="px-1 text-sm font-extrabold">Listings</legend>
+          {values.listings.map((l) => (
+            <div key={l.id} className="space-y-2">
+              <input type="hidden" name="listingIds" value={l.id} />
+              <p className="text-sm font-bold">{l.platform}{l.ended ? " (ended)" : ""}</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label" htmlFor={`listing_${l.id}_date`}>Date listed</label>
+                  <input id={`listing_${l.id}_date`} name={`listing_${l.id}_date`} type="date" required defaultValue={l.listedAt} className="field" />
+                </div>
+                <div>
+                  <label className="label" htmlFor={`listing_${l.id}_price`}>Asking (£)</label>
+                  <input id={`listing_${l.id}_price`} name={`listing_${l.id}_price`} required inputMode="decimal" defaultValue={l.price} className="field" />
+                </div>
+              </div>
+              <div>
+                <label className="label" htmlFor={`listing_${l.id}_url`}>Listing link</label>
+                <input id={`listing_${l.id}_url`} name={`listing_${l.id}_url`} type="url" inputMode="url" defaultValue={l.url ?? ""} placeholder="https://…" className="field" />
+              </div>
             </div>
-            <div>
-              <label className="label" htmlFor="listPrice">Asking (£)</label>
-              <input id="listPrice" name="listPrice" required inputMode="decimal" defaultValue={values.listPrice ?? ""} className="field" />
-            </div>
-          </div>
-          <div>
-            <label className="label" htmlFor="vintedUrl">Listing link</label>
-            <input id="vintedUrl" name="vintedUrl" type="url" inputMode="url" defaultValue={values.vintedUrl ?? ""} placeholder="https://…" className="field" />
-          </div>
+          ))}
         </fieldset>
       )}
 
@@ -138,16 +149,34 @@ export function ItemForm({
               <input id="soldPrice" name="soldPrice" required inputMode="decimal" defaultValue={values.soldPrice ?? ""} className="field" />
             </div>
           </div>
-          <div>
-            <label className="label" htmlFor="postalServiceId">Postage</label>
-            <select id="postalServiceId" name="postalServiceId" defaultValue={values.postalServiceId ?? ""} className="field">
-              <option value="">Not set</option>
-              {postalServices.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label" htmlFor="soldPlatformId">Sold on</label>
+              <select id="soldPlatformId" name="soldPlatformId" defaultValue={values.soldPlatformId ?? ""} className="field">
+                <option value="">Not set</option>
+                {platforms.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label" htmlFor="handover">How it got there</label>
+              <select id="handover" name="handover" value={handover} onChange={(e) => setHandover(e.target.value as Handover | "")} className="field">
+                <option value="">Not set</option>
+                {HANDOVERS.map((h) => <option key={h} value={h}>{HANDOVER_LABEL[h]}</option>)}
+              </select>
+            </div>
           </div>
+          {(handover === "posted" || handover === "") && (
+            <div>
+              <label className="label" htmlFor="postalServiceId">Postage</label>
+              <select id="postalServiceId" name="postalServiceId" defaultValue={values.postalServiceId ?? ""} className="field">
+                <option value="">Not set</option>
+                {postalServices.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+          )}
           {values.postedAt !== undefined && (
             <div>
-              <label className="label" htmlFor="postedAt">Date posted</label>
+              <label className="label" htmlFor="postedAt">{handover === "posted" || handover === "" ? "Date posted" : "Date handed over"}</label>
               <input id="postedAt" name="postedAt" type="date" defaultValue={values.postedAt ?? ""} className="field" />
             </div>
           )}

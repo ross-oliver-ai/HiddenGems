@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { and, desc, eq, ilike, inArray, or, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNull, or, type SQL } from "drizzle-orm";
 import { db } from "@/db";
-import { categories, items, shops } from "@/db/schema";
+import { categories, items, listings, platforms, shops } from "@/db/schema";
+import { alias } from "drizzle-orm/pg-core";
 import { requireUser } from "@/lib/auth";
 import { daysBetween, money } from "@/lib/format";
 import { FILTERS, isStale, itemProfit } from "@/lib/items";
@@ -23,14 +24,29 @@ export default async function ItemsPage({ searchParams }: { searchParams: Promis
     conds.push(or(ilike(items.name, like), ilike(items.brand, like), ilike(shops.name, like))!);
   }
 
+  const soldPlatform = alias(platforms, "sold_platform");
   const rows = await db
-    .select({ item: items, shop: shops.name, category: categories.name })
+    .select({ item: items, shop: shops.name, category: categories.name, soldOn: soldPlatform.name })
     .from(items)
+    .leftJoin(soldPlatform, eq(items.soldPlatformId, soldPlatform.id))
     .leftJoin(shops, eq(items.shopId, shops.id))
     .leftJoin(categories, eq(items.categoryId, categories.id))
     .where(and(...conds))
     .orderBy(desc(items.createdAt))
     .limit(200);
+
+  // Live platforms for the listed items on this page
+  const listedIds = rows.filter((r) => r.item.status === "listed").map((r) => r.item.id);
+  const liveOn = new Map<number, string[]>();
+  if (listedIds.length) {
+    const live = await db
+      .select({ itemId: listings.itemId, name: platforms.name })
+      .from(listings)
+      .innerJoin(platforms, eq(listings.platformId, platforms.id))
+      .where(and(inArray(listings.itemId, listedIds), isNull(listings.endedAt)))
+      .orderBy(asc(platforms.id));
+    for (const l of live) liveOn.set(l.itemId, [...(liveOn.get(l.itemId) ?? []), l.name]);
+  }
 
   const chip = (id: string) => `/items?f=${id}${term ? `&q=${encodeURIComponent(term)}` : ""}`;
 
@@ -59,7 +75,8 @@ export default async function ItemsPage({ searchParams }: { searchParams: Promis
         </div>
       ) : (
         <ul className="space-y-3">
-          {rows.map(({ item, shop, category }) => {
+          {rows.map(({ item, shop, category, soldOn }) => {
+            const tags = item.status === "listed" ? (liveOn.get(item.id) ?? []) : soldOn ? [soldOn] : [];
             const profit = itemProfit(item);
             const stale = isStale(item, user.staleAfterDays);
             return (
@@ -79,6 +96,11 @@ export default async function ItemsPage({ searchParams }: { searchParams: Promis
                       <StatusPill status={item.status} />
                     </div>
                     <p className="truncate text-sm text-muted">{[shop, category].filter(Boolean).join(" · ") || "No shop"}</p>
+                    {tags.length > 0 && (
+                      <p className="mt-0.5 flex flex-wrap gap-1">
+                        {tags.map((t) => <span key={t} className="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-bold text-muted">{t}</span>)}
+                      </p>
+                    )}
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm">
                       <span className="text-muted">Paid {money(item.buyPrice)}</span>
                       {item.status === "listed" && <span className="font-bold">Asking {money(item.listPrice)}</span>}

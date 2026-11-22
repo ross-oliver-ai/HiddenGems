@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { categories, postalServices } from "@/db/schema";
+import { categories, platforms, postalServices } from "@/db/schema";
 
 export const DEFAULT_CATEGORIES = [
   "Women's Clothing",
@@ -16,7 +16,11 @@ export const DEFAULT_CATEGORIES = [
 
 export const DEFAULT_POSTAL_SERVICES = ["Royal Mail", "InPost", "Evri"];
 
+/** In this order: the first one is what a new listing starts with. */
+export const DEFAULT_PLATFORMS = ["Vinted", "eBay", "Depop", "Facebook Marketplace", "Gumtree"];
+
 export async function seedUserDefaults(userId: number) {
   await db.insert(categories).values(DEFAULT_CATEGORIES.map((name) => ({ userId, name })));
   await db.insert(postalServices).values(DEFAULT_POSTAL_SERVICES.map((name) => ({ userId, name })));
+  await db.insert(platforms).values(DEFAULT_PLATFORMS.map((name) => ({ userId, name })));
 }

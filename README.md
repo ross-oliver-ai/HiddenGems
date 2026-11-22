@@ -1,6 +1,6 @@
 # Hidden Gems
 
-A mobile-first web app for resellers: record what you buy, list, sell and post, and see what you **really** make (profit, margin, ROI, stock value, goals). It started as a charity-shop-to-Vinted tracker for one person and is being turned into a product other resellers can sign up to (free 30-day trial, then £3/month).
+A mobile-first web app for resellers: record what you buy, list, sell and post, and see what you **really** make (profit, margin, ROI, stock value, goals). It started as a charity-shop-to-Vinted tracker for one person (it now supports any selling platform) and is being turned into a product other resellers can sign up to (free 30-day trial, then £3/month).
 
 - **Live site:** https://www.hiddengemsapp.co.uk (the original `hidden-gems-seven.vercel.app` address still works)
 - **Repo:** `ross-oliver-ai/HiddenGems` (default branch `main`)
@@ -42,6 +42,7 @@ A mobile-first web app for resellers: record what you buy, list, sell and post, 
 | Stripe subscriptions (£3/month) | Built, tested end to end in **Stripe sandbox (test mode)**. **Not yet on live Stripe keys** |
 | Custom domain | Live: `www.hiddengemsapp.co.uk` (DNS at Fasthosts, certificate by Vercel) |
 | Preview deployments | Off (Ignored Build Step = Only build production) |
+| Multi-platform selling (platforms, listings, sold on, handover) | Built (PR 2); existing items were copied across by migration `0007`. Fees and postage paid (PR 3) and platform reports (PR 4) are **not built yet**. Not yet verified on the live site |
 | Automated tests | GitHub runs them on every pull request and on `main` (billing rules, report maths, migrations, a browser run through the core journey). See [Tests](#tests) |
 | Trial-reminder emails (daily cron) | Built; first scheduled run not yet confirmed in Vercel's logs |
 
@@ -54,16 +55,18 @@ A mobile-first web app for resellers: record what you buy, list, sell and post, 
 ## 2. What the app does
 
 ### For sellers
-- **Items.** Each item records name, brand, size, condition, notes, photo, category, where it was bought, buy price and date. Search as you type (name, brand, shop) and filter chips: All, In stock, To list, Listed, Sold, Returned/unsold.
-- **Lifecycle** (see the diagram in [Data model](#5-data-model)). Bought → Listed → Sold → Posted → Completed, plus Returned (with refund amount), Unsold and Donated. Price reductions on a listing are recorded as history. Each step asks only for what it needs (price, date, postal service) and validates (for example, you can't list before you bought).
+- **Items.** Each item records name, brand, size, condition, notes, photo, category, where it was bought, buy price and date. Search as you type (name, brand, shop) and filter chips: All, In stock, To list, Listed, Sold, Returned/unsold. List cards show small platform tags (where it is live, or where it sold).
+- **Lifecycle** (see the diagram in [Data model](#5-data-model)). Bought → Listed → Sold → Posted → Completed, plus Returned (with refund amount), Unsold and Donated. Each step asks only for what it needs and validates (for example, you can't list before you bought).
+- **Selling on several platforms.** Each seller has a list of platforms (defaults Vinted, eBay, Depop, Facebook Marketplace, Gumtree). Listing an item means choosing one or more platforms, each with its own price (a new platform starts at the first platform's price; change it only if different) and an optional link. "Also list on…" adds platforms later; "Take off X" ends one listing; "Take off everywhere" puts it back to to-list. Price reductions are per platform and kept as history.
+- **Selling and handover.** The sell step records **Sold on** (the platform) and how it got to the buyer: **By post** (with a postage service), **Collected by buyer** or **I delivered it**. Posted items go Sold → Posted → Completed as before. Collected and delivered items skip the "posted" step: an "Already handed over" tick (on by default) completes the sale straight away; unticked, the item stays "Sold, to send" with a "Mark as handed over" button. Selling ends the listing on every other platform.
 - **Profit.** Sold, posted and completed items: sold price − buy price. Returned: sold price − refund − buy price. Unsold or donated: −buy price (written off). Items still in stock have no profit yet.
 - **Stale stock.** A listed item is "stale" once it has been listed for the user's chosen number of days (default 30).
 - **Photos.** Taken or chosen on the phone, resized in the browser to JPEG, uploaded to Vercel Blob. Tap to enlarge and zoom.
-- **Home.** Greeting, counts (to list, listed, to post), stock value at cost, and this month's profit goal with confetti when it's reached.
-- **Reports.** Period picker (week, month, quarter, UK tax year, year, all time, custom) with jump-to-previous-period. KPIs: money spent, revenue, profit, margin, ROI, average profit, average days to sell, sell-through. Charts over time; rankings by category, shop and postal service; best and worst items; stock ageing buckets; the monthly goal pro-rated to the chosen period. Tap a chart to drill in.
-- **CSV export** of all items (`/reports/export`), available on every plan, even when read-only.
-- **Settings.** Colour theme (Blossom, Sage, Lavender, Apricot, Ocean, Berry) × light/dark/auto; manage shops, categories and postal services (add, rename, archive); monthly profit goal and stale-after days; Billing; **Account** (a sub-page holding Change email and Change password, so the main Settings page stays a short menu).
-- **Defaults for new accounts.** Categories: Women's Clothing, Men's Clothing, Kids' Clothing, Shoes, Bags & Accessories, Books, Home & Kitchen, Toys & Games, Electronics, Other. Postal services: Royal Mail, InPost, Evri. New accounts start in **Blossom + Dark** mode.
+- **Home.** Greeting, counts (to list, listed, to send), stock value at cost, and this month's profit goal with confetti when it's reached.
+- **Reports.** (Not yet split by platform; that is PR 4.) Period picker (week, month, quarter, UK tax year, year, all time, custom) with jump-to-previous-period. KPIs: money spent, revenue, profit, margin, ROI, average profit, average days to sell, sell-through. Charts over time; rankings by category, shop and postal service; best and worst items; stock ageing buckets; the monthly goal pro-rated to the chosen period. Tap a chart to drill in.
+- **CSV export** of all items (`/reports/export`), available on every plan, even when read-only. "Listing link" holds the link of every listing (several are joined with ` | `).
+- **Settings.** Colour theme (Blossom, Sage, Lavender, Apricot, Ocean, Berry) × light/dark/auto; the main Settings page is a short menu: **Account** (Change email, Change password), **Billing**, **Platforms & postage** (selling platforms and postal services: add, rename, hide), **Shops & categories**, **Targets** (monthly profit goal, stale-after days), plus the admin rows.
+- **Defaults for new accounts.** Categories: Women's Clothing, Men's Clothing, Kids' Clothing, Shoes, Bags & Accessories, Books, Home & Kitchen, Toys & Games, Electronics, Other. Postal services: Royal Mail, InPost, Evri. Platforms: Vinted, eBay, Depop, Facebook Marketplace, Gumtree. New accounts start in **Blossom + Dark** mode.
 - **Installable (PWA).** Add to Home Screen on iPhone (Safari) or Install on Android (Chrome). Full-screen, gem icon. Needs a connection (no offline mode).
 
 ### For the admin
@@ -132,9 +135,9 @@ src/
     layout.tsx                 <html data-theme data-mode>, viewport, fonts
     (app)/                     signed-in app
       page.tsx                 home dashboard
-      items/                   list, new, [id] detail, actions.ts, lifecycle.ts
+      items/                   list, new, [id] detail, actions.ts, lifecycle.ts (step router)
       reports/                 page + export/route.ts (CSV)
-      settings/                page (short menu), actions, account/ (change email, change password), lists/ (shops, categories, postal, goals)
+      settings/                page (short menu), actions, account/ (change email, change password), platforms/ (platforms, postal), lists/ (shops, categories; holds the shared list actions), targets/ (goal, stale days)
       billing/                 page + actions (Checkout, Customer portal)
       admin/                   users/, waitlist/, update-database action
     api/
@@ -144,17 +147,18 @@ src/
     login/ signup/ verify/ forgot-password/ reset-password/
     change-password/ change-email/ confirm-email-change/ setup/
     welcome/ (landing)  terms/  privacy/  manifest.ts  icons
-  components/                  shared UI (forms, charts, banner, pickers, …)
+  components/                  shared UI (forms, charts, banner, pickers, PlatformPicker, SellFields, …)
   db/  schema.ts index.ts      Drizzle schema and pooled connection
   lib/
     auth.ts session.ts password.ts   sessions, guards, hashing
     billing.ts stripe.ts             entitlement logic, Stripe client + webhook handling
     email.ts authEmails.ts trialEmails.ts emailChange.ts tokens.ts
+    listings.ts listing-labels.ts    platforms, listings, selling and handover logic (all DB rules live here; tests cover it)
     items.ts reports.ts periods.ts queries.ts format.ts defaults.ts themes.ts migrations.ts
 scripts/  build-migrate.ts migrate.ts seed-admin.ts
 tests/    *.test.ts (unit + database tests), e2e/journey.ts (browser), helpers/testdb.ts
 .github/workflows/tests.yml    the automatic check on every pull request
-drizzle/  0000…0006_*.sql + meta/ (journal and snapshots)
+drizzle/  0000…0007_*.sql + meta/ (journal and snapshots)
 vercel.json                    cron schedule
 ```
 
@@ -174,9 +178,10 @@ Tables (Drizzle schema in `src/db/schema.ts`):
 | Table | Purpose |
 |---|---|
 | `users` | Account, role (`admin`/`seller`), password hash, `must_change_password`, `disabled`, theme and colour mode, monthly goal, stale-after days, `email_verified_at`, and all billing fields (see below) |
-| `shops`, `categories`, `postal_services` | Per-user lookup lists (`archived` instead of delete) |
-| `items` | One row per item with every lifecycle field (bought/listed/sold/posted/returned dates and prices), `status`, photo URL, listing link (stored in the column `vinted_url`; the name is kept for now and is replaced when multi-platform selling lands) |
-| `price_changes` | History of asking-price reductions per item |
+| `shops`, `categories`, `postal_services`, `platforms` | Per-user lookup lists (`archived` instead of delete) |
+| `items` | One row per item with every lifecycle field (bought/listed/sold/posted/returned dates and prices), `status`, photo URL, `sold_platform_id` and `handover` (`posted`/`collected`/`delivered`, shown as "By post" / "Collected by buyer" / "I delivered it") for the sale. The label says how it is sent, not that it has been posted: the status and `posted_at` say that. `listed_at` and `list_price` are a **summary of the live listings** (earliest date, first platform's price) kept in step by `src/lib/listings.ts`; the column `vinted_url` is **no longer written** (kept so rolling back is safe) |
+| `listings` | One row per item per platform: `price`, optional `url`, `listed_at`, `ended_at` (null while live). Only one live listing per item per platform (partial unique index) |
+| `price_changes` | History of asking-price reductions per item; `listing_id` says which platform's price changed (null on old rows) |
 | `auth_tokens` | One-time email links (`verify_email`, `reset_password`, `change_email`); only a SHA-256 hash is stored, with expiry, used-at and an optional `payload` (the new email for `change_email`) |
 | `stripe_events` | IDs of Stripe webhook events already handled |
 | `waitlist` | Landing-page signups, with `invited_at` |
@@ -192,8 +197,9 @@ stateDiagram-v2
   listed --> listed: reduce price
   listed --> bought: unlist
   bought --> sold: sell
-  listed --> sold: sell (price, postal service)
-  sold --> posted: post
+  listed --> sold: sell (platform, price, handover)
+  sold --> posted: post (posted items only)
+  sold --> completed: hand over (collected or delivered items)
   sold --> completed: complete
   posted --> completed: complete
   sold --> returned: return (refund)
@@ -208,7 +214,7 @@ stateDiagram-v2
   unsold --> bought: reopen
   donated --> bought: reopen
 ```
-Transitions are enforced in `src/app/(app)/items/lifecycle.ts` (a table of which statuses each step may start from).
+Transitions are enforced in `src/app/(app)/items/lifecycle.ts` (a table of which statuses each step may start from); the listing, selling and handover rules themselves are in `src/lib/listings.ts`. "Handing over" only applies to collected or delivered sales; "post" only to posted ones. Relisting a returned item clears the sale, including the sold platform and handover.
 
 ### Migrations
 Drizzle migrations live in `drizzle/` and are **additive only**, so rolling the code back never breaks the data.
@@ -222,6 +228,7 @@ Drizzle migrations live in `drizzle/` and are **additive only**, so rolling the 
 | `0004_title_case_categories` | Title-cased existing category names |
 | `0005_default_dark_mode` | New accounts default to `dark` colour mode (existing rows untouched) |
 | `0006_change_email` | `change_email` token kind and `auth_tokens.payload` |
+| `0007_multi_platform` | Adds `platforms`, `listings`, `items.sold_platform_id`, `items.handover`, `price_changes.listing_id`, and the handover enum. Then copies existing data: five default platforms per user; a Vinted listing for every item that had been listed; sold items marked Vinted + posted; price changes linked to that listing. Original columns are untouched. Proven on old-style data by `tests/backfill.test.ts` |
 
 Generate a new one with `npm run db:generate` after editing `schema.ts`; pass `--name` for a readable file name.
 
@@ -393,7 +400,9 @@ npm run dev
 - `tests/helpers.test.ts`: item profit, money parsing, goal pro-rating, reporting periods (week, month, quarter, UK tax year, year, custom) and chart buckets.
 - `tests/reports.test.ts`: the report maths (spent, revenue, cost, write-offs, profit, margin, ROI, days to sell, sell-through, rankings, stock, goal) against a known set of items in a real database, including refunds, write-offs, items outside the period, and another account's items never leaking in.
 - `tests/migrations.test.ts`: every migration applies in order to an empty database, with the expected tables, defaults, enum values and cascade deletes.
-- `tests/e2e/journey.ts`: in a phone-sized browser: sign in, wrong password refused, add an item, list it, sell it, see the profit, see it in reports and the CSV, Settings → Account, another account can't open the item (404), an expired trial is read-only (can view and export, can't add), signed-out visitors are sent to sign in.
+- `tests/listings.test.ts`: listing on several platforms, per-platform prices and reductions, taking listings off, selling (platform, handover, ends other listings, completes only once handed over), relisting, editing listings, and another account's data never being touched.
+- `tests/backfill.test.ts`: migration `0007` applied to old-style items (bought, listed, completed, returned, unsold, direct sale) leaves every old column unchanged and fills the new tables correctly.
+- `tests/e2e/journey.ts`: in a phone-sized browser: sign in, wrong password refused, add an item, list it on one platform then add a second, sell it on the second (listings end, platform and handover saved), a collected item that only completes once handed over, see the profit, see it in reports and the CSV, Settings → Platforms & postage, Settings → Account, another account can't open the item (404), an expired trial is read-only (can view and export, can't add), signed-out visitors are sent to sign in.
 
 **Not covered yet** (checked by hand in Stripe sandbox instead): the Stripe webhook and checkout paths, the email flows (confirm, reset, change email), the admin pages, and the daily trial-reminder cron.
 
@@ -408,7 +417,7 @@ npm run test:e2e         # resets the test database, then drives the app on :310
 ```
 Without `TEST_DATABASE_URL` the database tests are **skipped with a message**, not silently passed. The helper refuses to run if the database name doesn't contain `test`.
 
-**Keeping tests honest.** A test that can't fail is worthless, so when adding one, break the code on purpose once to see it fail. (This was done for the first set: ignoring refunds, leaking another account's data, a longer grace period, a trial ending a day late and wrong profit maths were each caught.)
+**Keeping tests honest.** A test that can't fail is worthless, so when adding one, break the code on purpose once to see it fail. (This was done for the first set: ignoring refunds, leaking another account's data, a longer grace period, a trial ending a day late and wrong profit maths were each caught; and for the listing logic: a sale not ending listings, the sold platform not being stored, and relist keeping the old sold platform.)
 
 ---
 
@@ -420,7 +429,9 @@ Without `TEST_DATABASE_URL` the database tests are **skipped with a message**, n
 - **Inputs must stay at 16px** (set globally in `globals.css`) and the viewport sets `maximum-scale=1`, otherwise iPhones zoom in when a field is focused. Pinch-zoom is blocked on Android as a result.
 - **Theme and mode** are `data-theme` / `data-mode` attributes on `<html>`, driven by the user's saved choice; signed-out pages follow the device setting.
 - **Don't import the database at build time** in new top-level code: `src/db/index.ts` throws if `DATABASE_URL` is missing (that's why preview builds fail).
+- **Test files run one at a time** (`--test-concurrency=1` in `npm test`) because they all share one throwaway database and several reset it; running them in parallel made them wipe each other's tables on GitHub.
 - **Tests wipe their database.** Only ever point `TEST_DATABASE_URL` at a throwaway database. When behaviour changes, update the tests in the same PR; when adding logic that handles money, access or data, add a test for it.
+- **Listings are the source of truth for what is on sale.** `items.listed_at` / `list_price` are only a summary and must be changed through `src/lib/listings.ts` (never directly), or the summary and the listings drift apart. New users get their platforms from `seedUserDefaults` (sign-up and admin create-user both call it).
 - **Rate-limit counts** for emails use tokens created in the last hour, whether or not they were used.
 - **Keep this README current.** Every change that affects what's described here updates the README in the same pull request; `CLAUDE.md` has the checklist, and each PR description says which sections changed (or "No README impact").
 - **Ways of working.** The owner is a product manager building this from a phone: changes are made by Claude (Claude Code) in a sandbox, opened as a pull request, and **merged only when the owner says "merge"**. Keep changes small, one PR per idea, with a plain-English description and what was tested. Don't add unrequested features; propose them and wait.
@@ -446,6 +457,7 @@ Without `TEST_DATABASE_URL` the database tests are **skipped with a message**, n
 | #21 | Stop iPhones zooming into fields |
 | #25 | Removed "Vinted" from all wording (the app is platform-neutral in what users see); Settings → Account sub-page for change email and change password |
 | #26 | Automated tests (billing rules, report maths, migrations, browser journey) and a GitHub check on every pull request |
+| #27 | Multi-platform selling: platforms list, several listings per item with per-platform prices and reductions, sold-on and handover (posted / collected / delivered), Settings split into short pages, CSV listing links; migration `0007` copies existing items across |
 | Launch prep | Domain `hiddengemsapp.co.uk`, `APP_URL`, webhook moved to the new domain; preview builds switched off; database password rotated |
 
 ---
@@ -460,10 +472,10 @@ Without `TEST_DATABASE_URL` the database tests are **skipped with a message**, n
 - [ ] Housekeeping still to do: confirm what the Postgres service's Backups tab shows (Hobby appears to have no volume backups); test a real photo upload on a phone.
 - [ ] Decision (22 Nov 2026): upgrade Railway to Pro (about $20/month) for backups once real customers start, before taking their data.
 
-**Agreed and planned: multi-platform selling (design agreed 22 Nov 2026; PR 2 onwards not started)**
+**Agreed and planned: multi-platform selling (design agreed 22 Nov 2026; PR 2 built, PR 3 and PR 4 not started)**
 - PR 1 (done, #25): reword Vinted out of the UI; Settings → Account sub-page.
 - Tests PR (#26) goes first so PR 2's migration and flow changes are protected.
-- PR 2: per-user **platforms** list (defaults Vinted, eBay, Depop, Facebook Marketplace, Gumtree); an item can have several **listings**, each with its own price (new platforms default to the first price) and optional link; the sell step records **sold on** and **how it was handed over** (posted / collected by buyer / I delivered it). Collected and delivered items go straight to completed once handed over (an "Already handed over" tick, on by default; unticked they wait as sold with a "Mark as handed over" button). Price reductions are per platform. Settings is split into short pages (Platforms & postage, Shops & categories, Targets). The migration only adds tables and columns and copies existing items into them (every existing item becomes a Vinted listing); original columns are left untouched.
+- PR 2 (built, #27): per-user **platforms** list (defaults Vinted, eBay, Depop, Facebook Marketplace, Gumtree); an item can have several **listings**, each with its own price (new platforms default to the first price) and optional link; the sell step records **sold on** and **how it was handed over** (by post / collected by buyer / I delivered it). Collected and delivered items go straight to completed once handed over (an "Already handed over" tick, on by default; unticked they wait as sold with a "Mark as handed over" button). Price reductions are per platform. Settings is split into short pages (Platforms & postage, Shops & categories, Targets). The migration only adds tables and columns and copies existing items into them (every existing item becomes a Vinted listing); original columns are left untouched.
 - PR 3: **fees** (optional per-platform fee %, default 0, set by the user; the sell step pre-fills an editable £ amount stored on the sale; editable on returned items) and **postage/delivery I paid**. Net profit = sold price − refund − fees − postage paid − cost; fees count in the month of the sale; old sales have none, so past numbers don't change.
 - PR 4: reports **by platform** (profit, sold, average days to sell, sell-through) and **by handover method**, plus the CSV columns.
 
