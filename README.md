@@ -485,6 +485,7 @@ Without `TEST_DATABASE_URL` the database tests are **skipped with a message**, n
 | #32 | Items page: greyed-out loading placeholders with a spinning gem on every page, "Show more" (50 at a time with a "Showing X of N" count, replacing the hidden 200-item limit), and an admin-only `?timing=1` readout. Pages now stream, so a missing item shows "not found" with status 200. No migration |
 | Region fix | Vercel function region changed from Washington DC to London (`lhr1`) in the Vercel settings after the timing readout showed about 90ms per database query; now 11 to 18ms. README only |
 | #34 | Landing page redesign: leads with a worked sale, shows the real journey and screens, states the price and trial length (read from the billing settings), adds a FAQ and a short founder note. Copy only says what the app does (no marketplace connection, not tax advice). No migration |
+| #35 | Landing page wording: no longer implies charity shops are the only source ("from the day you buy it", "charity shop, car boot, online auction, your own wardrobe"). Copy only, no migration |
 | Launch prep | Domain `hiddengemsapp.co.uk`, `APP_URL`, webhook moved to the new domain; preview builds switched off; database password rotated |
 
 ---
