@@ -42,6 +42,7 @@ A mobile-first web app for resellers: record what you buy, list, sell and post, 
 | Stripe subscriptions (£3/month) | Built, tested end to end in **Stripe sandbox (test mode)**. **Not yet on live Stripe keys** |
 | Custom domain | Live: `www.hiddengemsapp.co.uk` (DNS at Fasthosts, certificate by Vercel) |
 | Preview deployments | Off (Ignored Build Step = Only build production) |
+| Automated tests | GitHub runs them on every pull request and on `main` (billing rules, report maths, migrations, a browser run through the core journey). See [Tests](#tests) |
 | Trial-reminder emails (daily cron) | Built; first scheduled run not yet confirmed in Vercel's logs |
 
 **People and data.** The first testers (the owner's wife and a friend; the wife now uses the app from the new domain) are marked **"free forever"** (`billing_exempt`) and are never locked. The migration that shipped billing set `billing_exempt = true` for every account that existed at that moment. Admins are never billed either.
@@ -151,6 +152,8 @@ src/
     email.ts authEmails.ts trialEmails.ts emailChange.ts tokens.ts
     items.ts reports.ts periods.ts queries.ts format.ts defaults.ts themes.ts migrations.ts
 scripts/  build-migrate.ts migrate.ts seed-admin.ts
+tests/    *.test.ts (unit + database tests), e2e/journey.ts (browser), helpers/testdb.ts
+.github/workflows/tests.yml    the automatic check on every pull request
 drizzle/  0000…0006_*.sql + meta/ (journal and snapshots)
 vercel.json                    cron schedule
 ```
@@ -334,6 +337,7 @@ Set in **Vercel → Settings → Environment Variables** (Production). Locally, 
 | `STRIPE_PRICE_ID` | optional | A fixed Stripe Price; otherwise £3/month is created inline |
 | `CRON_SECRET` | for the cron job | Any long random string |
 | `TRIAL_DAYS`, `PRICE_PENCE` | optional | Trial length (1–365, default 30) and price in pence (default 300). Also changes the wording in the app and emails |
+| `TEST_DATABASE_URL` | tests only | A throwaway Postgres for `npm test` / `npm run test:e2e`. **Wiped by the tests; the database name must contain `test`. Never set it in Vercel and never point it at the real database.** GitHub supplies its own in the workflow |
 | `MIGRATE_ON_BUILD`, `EMAIL_DEBUG_LOG`, `STRIPE_API_BASE` | testing only | Force migrations on non-production builds; log emails; point Stripe calls at a fake server |
 
 ---
@@ -377,8 +381,34 @@ npm run dev
 | `npm run db:generate` | Generate a migration after changing `src/db/schema.ts` |
 | `npm run db:migrate` | Apply migrations to `DATABASE_URL` |
 | `npm run db:seed` | Create or reset the admin (re-running resets that password) |
+| `npm test` | Unit and database tests (needs `TEST_DATABASE_URL`) |
+| `npm run test:e2e` | Browser run through the core journey (needs the built app running; see [Tests](#tests)) |
 
-**Testing.** There is no automated test suite in the repo yet. Changes have been verified with type-check, lint, a production build and ad-hoc browser tests (Playwright) against a local Postgres and a small fake Stripe server, plus manual testing in the Stripe sandbox. Turning those scripts into checked-in tests is a worthwhile future task.
+### Tests
+
+**What runs automatically.** `.github/workflows/tests.yml` runs on every pull request and on `main`, using its own throwaway Postgres (no secrets, never the real database). It runs: type-check, lint, `npm test`, a production build, and `npm run test:e2e`. A green tick on the PR means all of them passed; a red cross means don't merge until it's understood.
+
+**What is covered.**
+- `tests/billing.test.ts`: every trial, lock and grace-period rule in `entitlement()`, plus the billing environment settings. The 7-day grace period and 30-day trial are hard-coded in the tests on purpose: they are promises made to customers.
+- `tests/helpers.test.ts`: item profit, money parsing, goal pro-rating, reporting periods (week, month, quarter, UK tax year, year, custom) and chart buckets.
+- `tests/reports.test.ts`: the report maths (spent, revenue, cost, write-offs, profit, margin, ROI, days to sell, sell-through, rankings, stock, goal) against a known set of items in a real database, including refunds, write-offs, items outside the period, and another account's items never leaking in.
+- `tests/migrations.test.ts`: every migration applies in order to an empty database, with the expected tables, defaults, enum values and cascade deletes.
+- `tests/e2e/journey.ts`: in a phone-sized browser: sign in, wrong password refused, add an item, list it, sell it, see the profit, see it in reports and the CSV, Settings → Account, another account can't open the item (404), an expired trial is read-only (can view and export, can't add), signed-out visitors are sent to sign in.
+
+**Not covered yet** (checked by hand in Stripe sandbox instead): the Stripe webhook and checkout paths, the email flows (confirm, reset, change email), the admin pages, and the daily trial-reminder cron.
+
+**Running them locally.** Create an empty Postgres database whose name contains `test`, then:
+```bash
+export TEST_DATABASE_URL=postgres://user:pass@localhost:5432/hg_test   # WIPED by the tests
+npm test
+npm run build            # or: npx next build
+DATABASE_URL=$TEST_DATABASE_URL AUTH_SECRET=<32+ chars> BILLING_ENABLED=true \
+  STRIPE_SECRET_KEY=sk_test_x STRIPE_WEBHOOK_SECRET=whsec_x npx next start -p 3100 &
+npm run test:e2e         # resets the test database, then drives the app on :3100
+```
+Without `TEST_DATABASE_URL` the database tests are **skipped with a message**, not silently passed. The helper refuses to run if the database name doesn't contain `test`.
+
+**Keeping tests honest.** A test that can't fail is worthless, so when adding one, break the code on purpose once to see it fail. (This was done for the first set: ignoring refunds, leaking another account's data, a longer grace period, a trial ending a day late and wrong profit maths were each caught.)
 
 ---
 
@@ -390,6 +420,7 @@ npm run dev
 - **Inputs must stay at 16px** (set globally in `globals.css`) and the viewport sets `maximum-scale=1`, otherwise iPhones zoom in when a field is focused. Pinch-zoom is blocked on Android as a result.
 - **Theme and mode** are `data-theme` / `data-mode` attributes on `<html>`, driven by the user's saved choice; signed-out pages follow the device setting.
 - **Don't import the database at build time** in new top-level code: `src/db/index.ts` throws if `DATABASE_URL` is missing (that's why preview builds fail).
+- **Tests wipe their database.** Only ever point `TEST_DATABASE_URL` at a throwaway database. When behaviour changes, update the tests in the same PR; when adding logic that handles money, access or data, add a test for it.
 - **Rate-limit counts** for emails use tokens created in the last hour, whether or not they were used.
 - **Keep this README current.** Every change that affects what's described here updates the README in the same pull request; `CLAUDE.md` has the checklist, and each PR description says which sections changed (or "No README impact").
 - **Ways of working.** The owner is a product manager building this from a phone: changes are made by Claude (Claude Code) in a sandbox, opened as a pull request, and **merged only when the owner says "merge"**. Keep changes small, one PR per idea, with a plain-English description and what was tested. Don't add unrequested features; propose them and wait.
@@ -414,6 +445,7 @@ npm run dev
 | #20 | Change email (user and admin) |
 | #21 | Stop iPhones zooming into fields |
 | #25 | Removed "Vinted" from all wording (the app is platform-neutral in what users see); Settings → Account sub-page for change email and change password |
+| #26 | Automated tests (billing rules, report maths, migrations, browser journey) and a GitHub check on every pull request |
 | Launch prep | Domain `hiddengemsapp.co.uk`, `APP_URL`, webhook moved to the new domain; preview builds switched off; database password rotated |
 
 ---
@@ -429,7 +461,8 @@ npm run dev
 - [ ] Decision (22 Nov 2026): upgrade Railway to Pro (about $20/month) for backups once real customers start, before taking their data.
 
 **Agreed and planned: multi-platform selling (design agreed 22 Nov 2026; PR 2 onwards not started)**
-- PR 1 (this one): reword Vinted out of the UI; Settings → Account sub-page.
+- PR 1 (done, #25): reword Vinted out of the UI; Settings → Account sub-page.
+- Tests PR (#26) goes first so PR 2's migration and flow changes are protected.
 - PR 2: per-user **platforms** list (defaults Vinted, eBay, Depop, Facebook Marketplace, Gumtree); an item can have several **listings**, each with its own price (new platforms default to the first price) and optional link; the sell step records **sold on** and **how it was handed over** (posted / collected by buyer / I delivered it). Collected and delivered items go straight to completed once handed over (an "Already handed over" tick, on by default; unticked they wait as sold with a "Mark as handed over" button). Price reductions are per platform. Settings is split into short pages (Platforms & postage, Shops & categories, Targets). The migration only adds tables and columns and copies existing items into them (every existing item becomes a Vinted listing); original columns are left untouched.
 - PR 3: **fees** (optional per-platform fee %, default 0, set by the user; the sell step pre-fills an editable £ amount stored on the sale; editable on returned items) and **postage/delivery I paid**. Net profit = sold price − refund − fees − postage paid − cost; fees count in the month of the sale; old sales have none, so past numbers don't change.
 - PR 4: reports **by platform** (profit, sold, average days to sell, sell-through) and **by handover method**, plus the CSV columns.
@@ -441,5 +474,5 @@ npm run dev
 - Bulk-buy splitting (one purchase → several items).
 - List thumbnails still crop photos.
 - Auto-capitalise newly typed category names.
-- Checked-in automated tests (unit tests for `entitlement()`, report maths, and end-to-end flows).
+- More automated tests: Stripe webhook and checkout, email flows, admin pages, the trial-reminder cron (the first set is in; see [Tests](#tests)).
 - A TikTok/ad video for launch (AI-generated in HeyGen) is parked, not part of this repo.
