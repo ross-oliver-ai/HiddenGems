@@ -67,6 +67,8 @@ async function main() {
   try {
     // --- A normal seller ---
     const { ctx, page } = await signIn("trial@example.com");
+    // Home streams in after its loading placeholder, so wait for the real content rather than reading the page at once
+    await page.getByText("To list").first().waitFor({ timeout: 15_000 }).catch(() => {});
     check("signs in and lands on the home page", (await body(page)).includes("To list"));
 
     // wrong password is refused
