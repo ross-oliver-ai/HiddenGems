@@ -366,6 +366,8 @@ Set in **Vercel → Settings → Environment Variables** (Production). Locally, 
 
 **Only production builds run.** In Vercel → project → Settings → **Build and Deployment** → **Ignored Build Step**, the behaviour is set to **Only build production**, so branches and pull requests don't get preview builds. (They used to fail anyway: preview deployments have no `DATABASE_URL`, deliberately, so previews can't touch real data, and the build trips over it.) If previews are ever wanted again, give Preview its own empty test database; do **not** add the production database URL to Preview.
 
+**Regions.** The Railway database is in **EU West (Netherlands)**. Vercel's **Function Region** (Settings → Functions) is set to **London (`lhr1`)**; the default is Washington DC, which made every database query about 90ms. Keep the two close; changing the Vercel region needs a redeploy to take effect.
+
 **Domain.** Added in Vercel (apex and `www`); DNS at Fasthosts; HTTPS certificates are automatic and free. Sign-in cookies are per host, so people sign in once on a new domain, and anyone who installed the app from the old address should re-add it from the new one.
 
 **Going live with Stripe (checklist).**
@@ -448,7 +450,7 @@ Without `TEST_DATABASE_URL` the database tests are **skipped with a message**, n
 - **Tests wipe their database.** Only ever point `TEST_DATABASE_URL` at a throwaway database. When behaviour changes, update the tests in the same PR; when adding logic that handles money, access or data, add a test for it.
 - **Listings are the source of truth for what is on sale.** `items.listed_at` / `list_price` are only a summary and must be changed through `src/lib/listings.ts` (never directly), or the summary and the listings drift apart. New users get their platforms from `seedUserDefaults` (sign-up and admin create-user both call it).
 - **Pages now stream.** Because pages have a `loading.tsx`, the placeholder is sent first and the real page replaces it. Two visible effects: a missing or someone else's item now returns HTTP 200 showing Next's "could not be found" message (not a hard 404; nothing of the item is sent), and a redirect from a page (for example a locked account opening Add item) happens just after the placeholder appears. The browser test waits for the redirect and checks the page text for this reason.
-- **Slow pages: measure first.** Sign in as an admin and open `/items?timing=1` on the live site. "Database round trip 1" includes opening a connection to Railway, round trip 2 is the plain distance; a big gap between them would point at the connection pool closing idle connections after 10 seconds (`src/db/index.ts`), which is a guess, not yet verified. Vercel (Ireland) and Railway (EU West, Netherlands) are close, so distance alone is unlikely to be the cause.
+- **Slow pages: measure first.** Sign in as an admin and open `/items?timing=1` on the live site (twice, a minute apart). "Database round trip" is a plain `select 1`, the pure distance to Railway; the sign-in check and the items query on a visit after a pause also include opening a new connection, because the pool closes idle connections after 10 seconds (`src/db/index.ts`). **What it found (22 Nov 2026):** Vercel's functions were in Washington DC (the default) while Railway is in EU West (Netherlands), so every query cost about 90ms and a visit after a pause cost over a second of database waiting. Moving the functions to London took a round trip to about 11 to 18ms and a cold visit to about 0.2 seconds. Whenever the database or the functions move, keep them in the same part of the world.
 - **Rate-limit counts** for emails use tokens created in the last hour, whether or not they were used.
 - **Keep this README current.** Every change that affects what's described here updates the README in the same pull request; `CLAUDE.md` has the checklist, and each PR description says which sections changed (or "No README impact").
 - **Ways of working.** The owner is a product manager building this from a phone: changes are made by Claude (Claude Code) in a sandbox, opened as a pull request, and **merged only when the owner says "merge"**. Keep changes small, one PR per idea, with a plain-English description and what was tested. Don't add unrequested features; propose them and wait.
@@ -480,6 +482,7 @@ Without `TEST_DATABASE_URL` the database tests are **skipped with a message**, n
 | #30 | The handover chart shows profit (with the number sold beside each bar) instead of only the count, because its subtitle promised profit. No migration |
 | #31 | "To send" worklist: chips wrap to two rows, a To send view groups waiting parcels by postal service plus Collection and Delivery, one-tap Mark as posted / handed over with Undo, the Home tile opens it. No migration |
 | #32 | Items page: greyed-out loading placeholders with a spinning gem on every page, "Show more" (50 at a time with a "Showing X of N" count, replacing the hidden 200-item limit), and an admin-only `?timing=1` readout. Pages now stream, so a missing item shows "not found" with status 200. No migration |
+| Region fix | Vercel function region changed from Washington DC to London (`lhr1`) in the Vercel settings after the timing readout showed about 90ms per database query; now 11 to 18ms. README only |
 | Launch prep | Domain `hiddengemsapp.co.uk`, `APP_URL`, webhook moved to the new domain; preview builds switched off; database password rotated |
 
 ---
@@ -502,7 +505,8 @@ Without `TEST_DATABASE_URL` the database tests are **skipped with a message**, n
 - PR 4 (built, #29): reports **by platform** (profit, sold, average days to sell, sell-through) and **by handover method**, plus the CSV columns.
 
 **Speed**
-- [ ] Open `/items?timing=1` as an admin on the live site and read the numbers (round trip 1 versus 2, items query); decide whether anything else needs fixing. Remove the readout afterwards if it isn't useful.
+- [x] Read `/items?timing=1` on the live site (22 Nov 2026): the Vercel functions were in Washington; moved to London, round trips fell from about 90ms to 11 to 18ms.
+- [ ] Optional, only if it still feels slow: keep database connections open longer than 10 seconds (saves roughly 0.1 to 0.2 seconds on a tap after a pause), and re-check with a real-sized list. Remove the timing readout once it's no longer needed.
 - No index was added for the Items list: at a few thousand items per account the existing `(user_id, status)` index is enough. Revisit if the "Items and count" timing grows.
 
 **Product ideas offered but not started**
