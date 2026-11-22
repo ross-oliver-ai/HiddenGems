@@ -15,8 +15,8 @@ import {
 export const roleEnum = pgEnum("role", ["admin", "seller"]);
 
 export const itemStatusEnum = pgEnum("item_status", [
-  "bought", // bought, not yet on Vinted
-  "listed", // live on Vinted
+  "bought", // bought, not yet listed
+  "listed", // live for sale
   "sold", // sold, not yet posted
   "posted", // posted to buyer
   "completed", // buyer confirmed, money received
@@ -149,7 +149,7 @@ export const items = pgTable(
   ],
 );
 
-// Each time the asking price is reduced on Vinted
+// Each time the asking price is reduced
 export const priceChanges = pgTable(
   "price_changes",
   {

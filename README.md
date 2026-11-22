@@ -61,7 +61,7 @@ A mobile-first web app for resellers: record what you buy, list, sell and post, 
 - **Home.** Greeting, counts (to list, listed, to post), stock value at cost, and this month's profit goal with confetti when it's reached.
 - **Reports.** Period picker (week, month, quarter, UK tax year, year, all time, custom) with jump-to-previous-period. KPIs: money spent, revenue, profit, margin, ROI, average profit, average days to sell, sell-through. Charts over time; rankings by category, shop and postal service; best and worst items; stock ageing buckets; the monthly goal pro-rated to the chosen period. Tap a chart to drill in.
 - **CSV export** of all items (`/reports/export`), available on every plan, even when read-only.
-- **Settings.** Colour theme (Blossom, Sage, Lavender, Apricot, Ocean, Berry) × light/dark/auto; manage shops, categories and postal services (add, rename, archive); monthly profit goal and stale-after days; change email; change password; Billing.
+- **Settings.** Colour theme (Blossom, Sage, Lavender, Apricot, Ocean, Berry) × light/dark/auto; manage shops, categories and postal services (add, rename, archive); monthly profit goal and stale-after days; Billing; **Account** (a sub-page holding Change email and Change password, so the main Settings page stays a short menu).
 - **Defaults for new accounts.** Categories: Women's Clothing, Men's Clothing, Kids' Clothing, Shoes, Bags & Accessories, Books, Home & Kitchen, Toys & Games, Electronics, Other. Postal services: Royal Mail, InPost, Evri. New accounts start in **Blossom + Dark** mode.
 - **Installable (PWA).** Add to Home Screen on iPhone (Safari) or Install on Android (Chrome). Full-screen, gem icon. Needs a connection (no offline mode).
 
@@ -133,7 +133,7 @@ src/
       page.tsx                 home dashboard
       items/                   list, new, [id] detail, actions.ts, lifecycle.ts
       reports/                 page + export/route.ts (CSV)
-      settings/                page, actions, lists/ (shops, categories, postal, goals)
+      settings/                page (short menu), actions, account/ (change email, change password), lists/ (shops, categories, postal, goals)
       billing/                 page + actions (Checkout, Customer portal)
       admin/                   users/, waitlist/, update-database action
     api/
@@ -172,7 +172,7 @@ Tables (Drizzle schema in `src/db/schema.ts`):
 |---|---|
 | `users` | Account, role (`admin`/`seller`), password hash, `must_change_password`, `disabled`, theme and colour mode, monthly goal, stale-after days, `email_verified_at`, and all billing fields (see below) |
 | `shops`, `categories`, `postal_services` | Per-user lookup lists (`archived` instead of delete) |
-| `items` | One row per item with every lifecycle field (bought/listed/sold/posted/returned dates and prices), `status`, photo URL, Vinted URL |
+| `items` | One row per item with every lifecycle field (bought/listed/sold/posted/returned dates and prices), `status`, photo URL, listing link (stored in the column `vinted_url`; the name is kept for now and is replaced when multi-platform selling lands) |
 | `price_changes` | History of asking-price reductions per item |
 | `auth_tokens` | One-time email links (`verify_email`, `reset_password`, `change_email`); only a SHA-256 hash is stored, with expiry, used-at and an optional `payload` (the new email for `change_email`) |
 | `stripe_events` | IDs of Stripe webhook events already handled |
@@ -231,7 +231,7 @@ Generate a new one with `npm run db:generate` after editing `schema.ts`; pass `-
 - **First run.** Set `SETUP_TOKEN` in Vercel and open `/setup`: it applies migrations and creates the admin. It refuses to run again once an admin exists. Delete `SETUP_TOKEN` afterwards. (`npm run db:seed` does the same from a computer.)
 - **Self sign-up** (`SIGNUPS_OPEN=true`, needs email configured): name, email, password, tick-box for terms, a hidden honeypot field, a daily cap (`SIGNUPS_PER_DAY`, default 100). The account gets a trial end date and default lists; a confirmation email is sent; the person can't sign in until they confirm. If the email can't be sent, the account is removed so they can retry.
 - **Email confirmation / password reset.** One-time links (24h and 1h). The confirmation page requires a button tap, so email scanners that pre-open links can't use the token up.
-- **Change email.** User: Settings → Change email → new address + current password → link sent to the **new** address → nothing changes until confirmed → notice sent to the old address. Max 3 requests/hour. Admin: set directly from Manage users (admin vouches for it). Either way the new address counts as confirmed, unused links to the old address are revoked, the Stripe customer email is updated (best effort), and addresses are lower-cased and unique.
+- **Change email.** User: Settings → Account → Change email → new address + current password → link sent to the **new** address → nothing changes until confirmed → notice sent to the old address. Max 3 requests/hour. Admin: set directly from Manage users (admin vouches for it). Either way the new address counts as confirmed, unused links to the old address are revoked, the Stripe customer email is updated (best effort), and addresses are lower-cased and unique.
 - **Other protections.** Every query scoped to the signed-in user; the Stripe webhook verifies its signature; the cron route needs a bearer secret; uploads need a session; photos use unguessable random-suffix URLs (public if the URL is known).
 
 **Known gaps:** no rate limiting on sign-in attempts; resetting a password doesn't sign out other sessions; no account deletion or self-serve data export beyond CSV; photos are public-by-URL; terms and privacy still need a professional review and contact details.
@@ -413,6 +413,7 @@ npm run dev
 | #17–#19 | Admin trial buttons: confirmations, End trial now, shown only where they apply |
 | #20 | Change email (user and admin) |
 | #21 | Stop iPhones zooming into fields |
+| #25 | Removed "Vinted" from all wording (the app is platform-neutral in what users see); Settings → Account sub-page for change email and change password |
 | Launch prep | Domain `hiddengemsapp.co.uk`, `APP_URL`, webhook moved to the new domain; preview builds switched off; database password rotated |
 
 ---
@@ -424,13 +425,20 @@ npm run dev
 - [ ] Business status (sole trader or limited company), VAT position, and a professional review of the terms and privacy notice (including the 14-day refund promise; add contact details and the business name).
 - [ ] Confirm the daily cron actually ran (Vercel → Cron Jobs).
 - [x] Housekeeping done: `SETUP_TOKEN` deleted; Vercel Ignored Build Step set to Only build production; Railway database password regenerated (22 Nov 2026) and `DATABASE_URL` in Vercel updated.
-- [ ] Housekeeping still to do: confirm Railway backups are on; test a real photo upload on a phone.
+- [ ] Housekeeping still to do: confirm what the Postgres service's Backups tab shows (Hobby appears to have no volume backups); test a real photo upload on a phone.
+- [ ] Decision (22 Nov 2026): upgrade Railway to Pro (about $20/month) for backups once real customers start, before taking their data.
+
+**Agreed and planned: multi-platform selling (design agreed 22 Nov 2026; PR 2 onwards not started)**
+- PR 1 (this one): reword Vinted out of the UI; Settings → Account sub-page.
+- PR 2: per-user **platforms** list (defaults Vinted, eBay, Depop, Facebook Marketplace, Gumtree); an item can have several **listings**, each with its own price (new platforms default to the first price) and optional link; the sell step records **sold on** and **how it was handed over** (posted / collected by buyer / I delivered it). Collected and delivered items go straight to completed once handed over (an "Already handed over" tick, on by default; unticked they wait as sold with a "Mark as handed over" button). Price reductions are per platform. Settings is split into short pages (Platforms & postage, Shops & categories, Targets). The migration only adds tables and columns and copies existing items into them (every existing item becomes a Vinted listing); original columns are left untouched.
+- PR 3: **fees** (optional per-platform fee %, default 0, set by the user; the sell step pre-fills an editable £ amount stored on the sale; editable on returned items) and **postage/delivery I paid**. Net profit = sold price − refund − fees − postage paid − cost; fees count in the month of the sale; old sales have none, so past numbers don't change.
+- PR 4: reports **by platform** (profit, sold, average days to sell, sell-through) and **by handover method**, plus the CSV columns.
 
 **Product ideas offered but not started**
 - Account deletion and a fuller data export in Settings.
 - Sign out other sessions on password reset; rate-limit sign-in attempts.
 - Receiving email (`hello@`, `support@`, `billing@`).
-- Bulk-buy splitting (one purchase → several items) and multi-platform support beyond Vinted.
+- Bulk-buy splitting (one purchase → several items).
 - List thumbnails still crop photos.
 - Auto-capitalise newly typed category names.
 - Checked-in automated tests (unit tests for `entitlement()`, report maths, and end-to-end flows).

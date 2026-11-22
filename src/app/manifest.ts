@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Hidden Gems",
     short_name: "Hidden Gems",
-    description: "Track your charity shop finds and Vinted sales",
+    description: "Track what you buy, list and sell",
     start_url: "/",
     scope: "/",
     display: "standalone",
