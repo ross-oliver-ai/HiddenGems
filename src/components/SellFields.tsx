@@ -4,10 +4,14 @@ import { useState } from "react";
 import { HANDOVER_LABEL, HANDOVERS } from "@/lib/listing-labels";
 
 type Option = { id: number; name: string };
+type Plat = { id: number; name: string; feePercent: string };
+
+const penny = (n: number) => (Math.round(n * 100) / 100).toFixed(2);
 
 /**
  * The sell step: which platform, the price (starts at that platform's asking price) and how it got to the buyer.
- * Fields: platformId, price, handover, postalServiceId (posted only), handedOver (collected / delivered only).
+ * Fields: platformId, price, fees, postagePaid, handover, postalServiceId (posted only), handedOver (collected / delivered only).
+ * Fees start at the platform's fee % of the price (if the seller set one) and can be changed.
  */
 export function SellFields({
   live,
@@ -15,17 +19,21 @@ export function SellFields({
   fallbackPrice,
   postalServices,
 }: {
-  live: { platformId: number; name: string; price: string }[];
-  others: Option[];
+  live: { platformId: number; name: string; price: string; feePercent: string }[];
+  others: Plat[];
   fallbackPrice: string;
   postalServices: Option[];
 }) {
   const [platformId, setPlatformId] = useState<string>(live.length === 1 ? String(live[0].platformId) : "");
   const [typedPrice, setTypedPrice] = useState<string | null>(null);
+  const [typedFees, setTypedFees] = useState<string | null>(null);
   const [handover, setHandover] = useState<string>("posted");
 
   const listed = live.find((l) => String(l.platformId) === platformId);
   const price = typedPrice ?? listed?.price ?? fallbackPrice;
+  const feePercent = Number(listed?.feePercent ?? others.find((o) => String(o.id) === platformId)?.feePercent ?? 0);
+  const suggested = feePercent > 0 && Number(price) > 0 ? penny((Number(price) * feePercent) / 100) : "";
+  const fees = typedFees ?? suggested;
 
   return (
     <div className="space-y-3">
@@ -49,6 +57,18 @@ export function SellFields({
       <div>
         <label className="label" htmlFor="price">Sold for (£)</label>
         <input id="price" name="price" inputMode="decimal" required placeholder="0.00" value={price} onChange={(e) => setTypedPrice(e.target.value)} className="field" />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="label" htmlFor="fees">Fees (£)</label>
+          <input id="fees" name="fees" inputMode="decimal" placeholder="0.00" value={fees} onChange={(e) => setTypedFees(e.target.value)} className="field" />
+          {feePercent > 0 && <p className="mt-1 text-xs text-muted">{feePercent}% of the price. Change it if the real fee was different.</p>}
+        </div>
+        <div>
+          <label className="label" htmlFor="postagePaid">Postage I paid (£)</label>
+          <input id="postagePaid" name="postagePaid" inputMode="decimal" placeholder="0.00" className="field" />
+        </div>
       </div>
 
       <div>

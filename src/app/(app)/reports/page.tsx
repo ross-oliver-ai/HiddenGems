@@ -163,6 +163,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         </p>
         <p className="mt-1 text-sm text-muted">
           {money(kpi.revenue)} revenue − {money(kpi.cogs)} cost of items sold
+          {kpi.fees > 0 ? ` − ${money(kpi.fees)} fees and postage` : ""}
           {kpi.writtenOff > 0 ? ` − ${money(kpi.writtenOff)} written off` : ""}
         </p>
       </section>

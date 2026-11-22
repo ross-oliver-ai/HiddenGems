@@ -7,7 +7,7 @@ import { del } from "@vercel/blob";
 import { db } from "@/db";
 import { items, platforms, shops } from "@/db/schema";
 import { requireWritableUser } from "@/lib/auth";
-import { parseMoney, todayLondon } from "@/lib/format";
+import { parseMoney, parseOptionalMoney, todayLondon } from "@/lib/format";
 import { CONDITIONS } from "@/lib/items";
 import { cleanUrl, editListings, isHandover, type ListingEdit } from "@/lib/listings";
 
@@ -129,8 +129,13 @@ export async function updateItemAction(_prev: ItemState, formData: FormData): Pr
     const soldAt = date(formData.get("soldAt"));
     const soldPrice = parseMoney(formData.get("soldPrice"));
     if (!soldAt || soldPrice === null) return { error: "Check the sold date and price." };
+    const fees = parseOptionalMoney(formData.get("fees"));
+    const postagePaid = parseOptionalMoney(formData.get("postagePaid"));
+    if (fees === null || postagePaid === null) return { error: "Check the fees and postage amounts (numbers only, or leave blank)." };
     patch.soldAt = soldAt;
     patch.soldPrice = soldPrice;
+    patch.fees = fees;
+    patch.postagePaid = postagePaid;
 
     const platformId = Number(formData.get("soldPlatformId")) || null;
     if (platformId) {

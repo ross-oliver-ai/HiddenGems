@@ -144,6 +144,8 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
             />
           ))}
           {item.soldAt && <Row label="Sold" value={`${shortDate(item.soldAt)} · ${money(item.soldPrice)}`} />}
+          {item.soldAt && Number(item.fees) > 0 && <Row label="Fees" value={`−${money(item.fees)}`} />}
+          {item.soldAt && Number(item.postagePaid) > 0 && <Row label="Postage I paid" value={`−${money(item.postagePaid)}`} />}
           {row.soldOn && <Row label="Sold on" value={row.soldOn} />}
           {daysToSell !== null && <Row label="Days to sell" value={daysToSell} />}
           {item.handover && <Row label="How it got there" value={HANDOVER_LABEL[item.handover]} />}
@@ -174,7 +176,7 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
             <StepForm itemId={id} intent="sell" label="Mark as sold">
               <DateField label="Date sold" />
               <SellFields
-                live={live.map((l) => ({ platformId: l.listing.platformId, name: l.platform, price: l.listing.price }))}
+                live={live.map((l) => ({ platformId: l.listing.platformId, name: l.platform, price: l.listing.price, feePercent: platformRows.find((p) => p.id === l.listing.platformId)?.feePercent ?? "0" }))}
                 others={addable}
                 fallbackPrice={item.listPrice ?? ""}
                 postalServices={postalRows}
@@ -285,6 +287,8 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
             })),
             soldAt: item.soldAt,
             soldPrice: item.soldPrice,
+            fees: item.fees,
+            postagePaid: item.postagePaid,
             soldPlatformId: item.soldPlatformId,
             handover: item.handover,
             postalServiceId: item.postalServiceId,

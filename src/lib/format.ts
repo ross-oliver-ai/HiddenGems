@@ -20,6 +20,12 @@ export function parseMoney(raw: FormDataEntryValue | null | undefined): string |
   return n.toFixed(2);
 }
 
+/** Like parseMoney, but an empty box means 0.00 (for optional amounts such as fees). null = something was typed but isn't an amount. */
+export function parseOptionalMoney(raw: FormDataEntryValue | null | undefined): string | null {
+  if (raw === null || raw === undefined || String(raw).replace(/[£\s]/g, "") === "") return "0.00";
+  return parseMoney(raw);
+}
+
 export function todayLondon(): string {
   // en-CA gives YYYY-MM-DD
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(new Date());

@@ -25,6 +25,8 @@ export type ItemFormValues = {
   listings?: { id: number; platform: string; price: string; url: string | null; listedAt: string; ended: boolean }[];
   soldAt?: string | null;
   soldPrice?: string | null;
+  fees?: string | null;
+  postagePaid?: string | null;
   soldPlatformId?: number | null;
   handover?: Handover | null;
   postalServiceId?: number | null;
@@ -147,6 +149,16 @@ export function ItemForm({
             <div>
               <label className="label" htmlFor="soldPrice">Sold for (£)</label>
               <input id="soldPrice" name="soldPrice" required inputMode="decimal" defaultValue={values.soldPrice ?? ""} className="field" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label" htmlFor="fees">Fees (£)</label>
+              <input id="fees" name="fees" inputMode="decimal" defaultValue={Number(values.fees) > 0 ? values.fees ?? "" : ""} placeholder="0.00" className="field" />
+            </div>
+            <div>
+              <label className="label" htmlFor="postagePaid">Postage I paid (£)</label>
+              <input id="postagePaid" name="postagePaid" inputMode="decimal" defaultValue={Number(values.postagePaid) > 0 ? values.postagePaid ?? "" : ""} placeholder="0.00" className="field" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">

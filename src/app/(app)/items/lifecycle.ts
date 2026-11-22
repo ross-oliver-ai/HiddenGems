@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { items, type ItemStatus } from "@/db/schema";
 import { requireWritableUser } from "@/lib/auth";
-import { parseMoney, todayLondon } from "@/lib/format";
+import { parseMoney, parseOptionalMoney, todayLondon } from "@/lib/format";
 import { endListing, listOn, markHandedOver, parseListEntries, reducePrices, sellItem, unlistAll, writeOff, type Result } from "@/lib/listings";
 
 export type LifecycleState = { error?: string; ok?: boolean };
@@ -76,7 +76,10 @@ export async function lifecycleAction(_prev: LifecycleState, formData: FormData)
     case "unlist":
       state = done(await unlistAll(user.id, id, today));
       break;
-    case "sell":
+    case "sell": {
+      const fees = parseOptionalMoney(formData.get("fees"));
+      const postagePaid = parseOptionalMoney(formData.get("postagePaid"));
+      if (fees === null || postagePaid === null) return { error: "Check the fees and postage amounts (numbers only, or leave blank)." };
       state = done(
         await sellItem(user.id, id, {
           platformId: Number(formData.get("platformId")),
@@ -84,10 +87,13 @@ export async function lifecycleAction(_prev: LifecycleState, formData: FormData)
           when,
           handover: String(formData.get("handover") ?? ""),
           postalServiceId: Number(formData.get("postalServiceId")) || null,
+          fees,
+          postagePaid,
           handedOver: formData.get("handedOver") === "1",
         }),
       );
       break;
+    }
     case "handover":
       state = done(await markHandedOver(user.id, id, when));
       break;

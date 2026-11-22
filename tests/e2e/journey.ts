@@ -108,19 +108,30 @@ async function main() {
     const live = (await pool.query("select platform_id, price from listings where item_id=$1 and ended_at is null order by platform_id", [id])).rows;
     check("the item is now live on two platforms", live.length === 2, JSON.stringify(live));
 
-    // sell it on eBay, posted
+    // set eBay's selling fee to 10% in Settings
+    await page.goto(`${BASE}/settings/platforms`);
+    await page.fill(`#fee_${ebay}`, "10");
+    await page.click("button:has-text('Save fees')");
+    await page.waitForTimeout(1500);
+    const feePct = (await pool.query("select fee_percent::text as f from platforms where id=$1", [ebay])).rows[0].f;
+    check("a platform's fee % can be saved in Settings", feePct === "10.00", feePct);
+
+    // sell it on eBay, posted: the fee is pre-filled from the 10%, and I add £2 postage I paid
     await page.goto(`${BASE}/items/${id}`);
     await page.selectOption("#sold-platform", String(ebay));
     await page.fill("#price", "15");
+    check("the fee is pre-filled from the platform's % (10% of £15 = £1.50)", (await page.inputValue("#fees")) === "1.50");
+    await page.fill("#postagePaid", "2");
     await page.click("button:has-text('Mark as sold')");
     await page.waitForTimeout(1500);
-    const sold = (await pool.query("select status, sold_price, sold_platform_id, handover from items where id=$1", [id])).rows[0];
+    const sold = (await pool.query("select status, sold_price, sold_platform_id, handover, fees::text, postage_paid::text from items where id=$1", [id])).rows[0];
     check("selling it records the price, platform and posted handover", sold.status === "sold" && sold.sold_price === "15.00" && sold.sold_platform_id === ebay && sold.handover === "posted", JSON.stringify(sold));
+    check("...and the fee and the postage I paid", sold.fees === "1.50" && sold.postage_paid === "2.00", JSON.stringify(sold));
     const stillLive = (await pool.query("select count(*)::int as n from listings where item_id=$1 and ended_at is null", [id])).rows[0].n;
     check("selling ends the listing on every platform", stillLive === 0);
     await page.goto(`${BASE}/items/${id}`);
     const t = await body(page);
-    check("the item page shows the profit (£15 - £4 = £11) and where it sold", t.includes("£11.00") && /profit/i.test(t) && t.includes("eBay"), t.slice(0, 300));
+    check("the item page shows the profit after fees and postage (£15 - £1.50 - £2 - £4 = £7.50) and where it sold", t.includes("£7.50") && /profit/i.test(t) && t.includes("eBay") && t.includes("Fees") && t.includes("Postage I paid"), t.slice(0, 400));
 
     // a collected item only completes once handed over
     const [boots2] = (await pool.query("insert into items (user_id, name, status, bought_at, buy_price) values ($1,'Collected lamp','bought','2026-01-01','2.00') returning id", [trial.id])).rows;
@@ -146,10 +157,10 @@ async function main() {
     // reports and CSV
     await page.goto(`${BASE}/reports?p=all`);
     const rep = await body(page);
-    check("reports add up both sales (revenue £25.00, profit £19.00)", rep.includes("£25.00") && rep.includes("£19.00"));
+    check("reports add up both sales after fees (revenue £25.00, profit £15.50)", rep.includes("£25.00") && rep.includes("£15.50") && rep.includes("£3.50 fees and postage"), rep.slice(0, 300));
     const csv = await ctx.request.get(`${BASE}/reports/export`);
     const csvText = await csv.text();
-    check("the CSV export includes the item", csv.status() === 200 && csvText.includes("Journey boots"));
+    check("the CSV export includes the item and the fee columns", csv.status() === 200 && csvText.includes("Journey boots") && csvText.includes("Fees,Postage paid,Profit"));
 
     // settings pages open
     await page.goto(`${BASE}/settings`);

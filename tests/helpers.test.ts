@@ -2,11 +2,11 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { itemProfit, isStale } from "@/lib/items";
-import { parseMoney, daysBetween, money } from "@/lib/format";
+import { parseMoney, parseOptionalMoney, daysBetween, money } from "@/lib/format";
 import { prorateGoal, resolvePeriod, bucketKey, listBuckets, addDays } from "@/lib/periods";
 
 describe("itemProfit()", () => {
-  const base = { soldPrice: null, buyPrice: "5.00", refundAmount: null } as const;
+  const base = { soldPrice: null, buyPrice: "5.00", refundAmount: null, fees: "0.00", postagePaid: "0.00" } as const;
   it("is null while an item has no outcome yet", () => {
     assert.equal(itemProfit({ ...base, status: "bought" }), null);
     assert.equal(itemProfit({ ...base, status: "listed" }), null);
@@ -19,6 +19,22 @@ describe("itemProfit()", () => {
   it("a returned item: sold price minus refund minus cost", () => {
     assert.equal(itemProfit({ ...base, status: "returned", soldPrice: "20.00", refundAmount: "20.00" }), -5);
     assert.equal(itemProfit({ ...base, status: "returned", soldPrice: "20.00", refundAmount: "5.00" }), 10);
+  });
+  it("fees and postage paid come off the profit of a sale", () => {
+    assert.equal(itemProfit({ ...base, status: "completed", soldPrice: "20.00", fees: "1.60", postagePaid: "3.00" }), 10.4); // 20 - 1.60 - 3 - 5
+    assert.equal(itemProfit({ ...base, status: "sold", soldPrice: "20.00", fees: "1.60" }), 13.4);
+    assert.equal(itemProfit({ ...base, status: "posted", soldPrice: "20.00", postagePaid: "3.00" }), 12);
+  });
+  it("on a return, fees and postage already paid still count (sold - refund - fees - postage - cost)", () => {
+    assert.equal(itemProfit({ ...base, status: "returned", soldPrice: "10.00", refundAmount: "4.00", fees: "0.80", postagePaid: "2.00", buyPrice: "3.00" }), 0.2);
+    assert.equal(itemProfit({ ...base, status: "returned", soldPrice: "20.00", refundAmount: "20.00", fees: "1.00" }), -6);
+  });
+  it("amounts that are awkward in floating point still come out to the penny", () => {
+    assert.equal(itemProfit({ ...base, status: "completed", soldPrice: "0.30", buyPrice: "0.00", fees: "0.10", postagePaid: "0.10" }), 0.1);
+  });
+  it("fees never change an item that has no sale (written off or still in stock)", () => {
+    assert.equal(itemProfit({ ...base, status: "unsold", fees: "9.00" }), -5);
+    assert.equal(itemProfit({ ...base, status: "listed", fees: "9.00" }), null);
   });
   it("unsold and donated items are a loss of what they cost", () => {
     assert.equal(itemProfit({ ...base, status: "unsold" }), -5);
@@ -143,5 +159,21 @@ describe("chart buckets", () => {
   it("lists every bucket in a range with no gaps", () => {
     assert.equal(listBuckets("2026-11-01", "2026-11-30", "day").length, 30);
     assert.deepEqual(listBuckets("2026-10-15", "2026-12-02", "month").map((b) => b.key), ["2026-10", "2026-11", "2026-12"]);
+  });
+});
+
+describe("parseOptionalMoney()", () => {
+  it("treats an empty box as 0.00 (fees and postage are optional)", () => {
+    assert.equal(parseOptionalMoney(""), "0.00");
+    assert.equal(parseOptionalMoney("  "), "0.00");
+    assert.equal(parseOptionalMoney(null), "0.00");
+  });
+  it("accepts amounts the same way parseMoney does", () => {
+    assert.equal(parseOptionalMoney("£1.5"), "1.50");
+    assert.equal(parseOptionalMoney("2,50"), "2.50");
+  });
+  it("refuses something typed that isn't an amount, rather than silently making it 0", () => {
+    assert.equal(parseOptionalMoney("abc"), null);
+    assert.equal(parseOptionalMoney("-3"), null);
   });
 });
