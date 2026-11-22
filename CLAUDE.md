@@ -22,3 +22,4 @@ In the PR description, say which README sections were updated, or write "No READ
 - The owner works from a phone and merges only by saying "merge". Open a PR, describe it in plain English with what was tested, and wait.
 - Don't add unrequested features; propose them and wait.
 - This is a newer Next.js than most documentation describes; see `AGENTS.md` and read `node_modules/next/dist/docs/` before writing Next.js code.
+- Run `npm test` (and the other checks the README's Tests section lists) before opening a PR, add or update tests when behaviour changes, and make sure the GitHub "Tests" check is green before saying a PR is ready. Never point `TEST_DATABASE_URL` at a real database.
