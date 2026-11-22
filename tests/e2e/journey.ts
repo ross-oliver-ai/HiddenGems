@@ -86,34 +86,77 @@ async function main() {
     check("the new item is saved as 'to list' with the right price", rows.length === 1 && rows[0].status === "bought" && rows[0].buy_price === "4.00", JSON.stringify(rows));
     const id = rows[0]?.id;
 
-    // list it
+    const plat = async (name: string) => (await pool.query("select id from platforms where user_id=$1 and name=$2", [trial.id, name])).rows[0].id as number;
+    const vinted = await plat("Vinted");
+    const ebay = await plat("eBay");
+
+    // list it (Vinted is pre-selected as the first platform)
     await page.goto(`${BASE}/items/${id}`);
-    await page.fill("input[name=price]", "20");
+    await page.fill(`#price_${vinted}`, "20");
     await page.click("button:has-text('Mark as listed')");
     await page.waitForTimeout(1500);
     const listed = (await pool.query("select status, list_price from items where id=$1", [id])).rows[0];
     check("listing it records the asking price", listed.status === "listed" && listed.list_price === "20.00", JSON.stringify(listed));
 
-    // sell it
+    // also list it on eBay at the same price (prefilled from the first listing)
     await page.goto(`${BASE}/items/${id}`);
-    await page.fill("input[name=price]", "15");
+    await page.click("summary:has-text('Also list on')");
+    await page.click("label:has-text('eBay')");
+    check("a second platform's price starts at the first price", (await page.inputValue(`#price_${ebay}`)) === "20.00");
+    await page.click("button:has-text('Add listing')");
+    await page.waitForTimeout(1500);
+    const live = (await pool.query("select platform_id, price from listings where item_id=$1 and ended_at is null order by platform_id", [id])).rows;
+    check("the item is now live on two platforms", live.length === 2, JSON.stringify(live));
+
+    // sell it on eBay, posted
+    await page.goto(`${BASE}/items/${id}`);
+    await page.selectOption("#sold-platform", String(ebay));
+    await page.fill("#price", "15");
     await page.click("button:has-text('Mark as sold')");
     await page.waitForTimeout(1500);
-    const sold = (await pool.query("select status, sold_price from items where id=$1", [id])).rows[0];
-    check("selling it records the price", sold.status === "sold" && sold.sold_price === "15.00", JSON.stringify(sold));
+    const sold = (await pool.query("select status, sold_price, sold_platform_id, handover from items where id=$1", [id])).rows[0];
+    check("selling it records the price, platform and posted handover", sold.status === "sold" && sold.sold_price === "15.00" && sold.sold_platform_id === ebay && sold.handover === "posted", JSON.stringify(sold));
+    const stillLive = (await pool.query("select count(*)::int as n from listings where item_id=$1 and ended_at is null", [id])).rows[0].n;
+    check("selling ends the listing on every platform", stillLive === 0);
     await page.goto(`${BASE}/items/${id}`);
     const t = await body(page);
-    check("the item page shows the profit (£15 - £4 = £11)", t.includes("£11.00") && /profit/i.test(t), t.slice(0, 300));
+    check("the item page shows the profit (£15 - £4 = £11) and where it sold", t.includes("£11.00") && /profit/i.test(t) && t.includes("eBay"), t.slice(0, 300));
+
+    // a collected item only completes once handed over
+    const [boots2] = (await pool.query("insert into items (user_id, name, status, bought_at, buy_price) values ($1,'Collected lamp','bought','2026-01-01','2.00') returning id", [trial.id])).rows;
+    await page.goto(`${BASE}/items/${boots2.id}`);
+    await page.fill(`#price_${vinted}`, "10");
+    await page.click("button:has-text('Mark as listed')");
+    await page.waitForTimeout(1500);
+    await page.goto(`${BASE}/items/${boots2.id}`);
+    await page.selectOption("#sold-platform", String(vinted));
+    await page.click("label:has-text('Collected by buyer')");
+    await page.uncheck("input[name=handedOver]");
+    await page.click("button:has-text('Mark as sold')");
+    await page.waitForTimeout(1500);
+    const waiting = (await pool.query("select status, handover from items where id=$1", [boots2.id])).rows[0];
+    check("a collection not yet made stays 'sold'", waiting.status === "sold" && waiting.handover === "collected", JSON.stringify(waiting));
+    await page.goto(`${BASE}/items/${boots2.id}`);
+    check("...and offers 'Mark as handed over', not 'posted'", (await page.locator("button:has-text('Mark as handed over')").count()) === 1 && (await page.locator("button:has-text('Mark as posted')").count()) === 0);
+    await page.click("button:has-text('Mark as handed over')");
+    await page.waitForTimeout(1500);
+    const done = (await pool.query("select status from items where id=$1", [boots2.id])).rows[0];
+    check("handing it over completes the sale", done.status === "completed", JSON.stringify(done));
 
     // reports and CSV
     await page.goto(`${BASE}/reports?p=all`);
     const rep = await body(page);
-    check("reports show the sale (revenue £15.00, profit £11.00)", rep.includes("£15.00") && rep.includes("£11.00"));
+    check("reports add up both sales (revenue £25.00, profit £19.00)", rep.includes("£25.00") && rep.includes("£19.00"));
     const csv = await ctx.request.get(`${BASE}/reports/export`);
     const csvText = await csv.text();
     check("the CSV export includes the item", csv.status() === 200 && csvText.includes("Journey boots"));
 
     // settings pages open
+    await page.goto(`${BASE}/settings`);
+    await page.click("a[href='/settings/platforms']");
+    await page.waitForURL(`${BASE}/settings/platforms`);
+    const platNames = await page.locator("input[aria-label^='Rename ']").evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value));
+    check("Settings > Platforms & postage lists the default platforms", ["Vinted", "eBay", "Depop", "Facebook Marketplace", "Gumtree"].every((n) => platNames.includes(n)), platNames.join(","));
     await page.goto(`${BASE}/settings`);
     await page.click("a[href='/settings/account']");
     await page.waitForURL(`${BASE}/settings/account`);

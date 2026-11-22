@@ -11,6 +11,7 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const roleEnum = pgEnum("role", ["admin", "seller"]);
 
@@ -23,6 +24,13 @@ export const itemStatusEnum = pgEnum("item_status", [
   "returned", // sold then returned/refunded
   "unsold", // gave up on selling
   "donated", // donated back
+]);
+
+// How a sold item got to the buyer
+export const handoverEnum = pgEnum("handover_method", [
+  "posted", // sent through a postal service
+  "collected", // the buyer came and collected it
+  "delivered", // the seller delivered it by hand
 ]);
 
 export const users = pgTable(
@@ -101,6 +109,20 @@ export const postalServices = pgTable(
   (t) => [index("postal_user_idx").on(t.userId)],
 );
 
+/** Places an item can be sold: Vinted, eBay, Depop, … One list per user, like shops and postal services. */
+export const platforms = pgTable(
+  "platforms",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    archived: boolean("archived").notNull().default(false),
+  },
+  (t) => [index("platforms_user_idx").on(t.userId)],
+);
+
 export const items = pgTable(
   "items",
   {
@@ -124,6 +146,8 @@ export const items = pgTable(
 
     // listed
     listedAt: date("listed_at"),
+    // listedAt / listPrice summarise the item's live listings (earliest date, first listing's price) and are kept in step by the code.
+    // The real per-platform data lives in `listings`. vinted_url is no longer written (kept: migrations are additive only).
     listPrice: numeric("list_price", { precision: 10, scale: 2 }),
     vintedUrl: text("vinted_url"),
 
@@ -133,7 +157,9 @@ export const items = pgTable(
     postalServiceId: integer("postal_service_id").references(() => postalServices.id, {
       onDelete: "set null",
     }),
-    postedAt: date("posted_at"),
+    postedAt: date("posted_at"), // when it was posted, or handed over for collected/delivered items
+    soldPlatformId: integer("sold_platform_id").references(() => platforms.id, { onDelete: "set null" }),
+    handover: handoverEnum("handover"),
 
     // returned / refunded
     returnedAt: date("returned_at"),
@@ -149,6 +175,31 @@ export const items = pgTable(
   ],
 );
 
+/** One row per platform an item has been listed on. endedAt is null while the listing is live. */
+export const listings = pgTable(
+  "listings",
+  {
+    id: serial("id").primaryKey(),
+    itemId: integer("item_id")
+      .notNull()
+      .references(() => items.id, { onDelete: "cascade" }),
+    platformId: integer("platform_id")
+      .notNull()
+      .references(() => platforms.id, { onDelete: "cascade" }),
+    price: numeric("price", { precision: 10, scale: 2 }).notNull(),
+    url: text("url"),
+    listedAt: date("listed_at").notNull(),
+    endedAt: date("ended_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("listings_item_idx").on(t.itemId),
+    index("listings_platform_idx").on(t.platformId),
+    // An item can only be live once on each platform
+    uniqueIndex("listings_live_unique").on(t.itemId, t.platformId).where(sql`${t.endedAt} is null`),
+  ],
+);
+
 // Each time the asking price is reduced
 export const priceChanges = pgTable(
   "price_changes",
@@ -160,12 +211,16 @@ export const priceChanges = pgTable(
     changedAt: date("changed_at").notNull(),
     oldPrice: numeric("old_price", { precision: 10, scale: 2 }).notNull(),
     newPrice: numeric("new_price", { precision: 10, scale: 2 }).notNull(),
+    listingId: integer("listing_id").references(() => listings.id, { onDelete: "set null" }),
   },
   (t) => [index("price_changes_item_idx").on(t.itemId)],
 );
 
 export type User = typeof users.$inferSelect;
 export type Item = typeof items.$inferSelect;
+export type Platform = typeof platforms.$inferSelect;
+export type Listing = typeof listings.$inferSelect;
+export type Handover = (typeof handoverEnum.enumValues)[number];
 export type ItemStatus = (typeof itemStatusEnum.enumValues)[number];
 
 /** People who asked for an invite on the public landing page. */

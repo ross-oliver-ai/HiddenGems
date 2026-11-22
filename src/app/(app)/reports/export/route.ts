@@ -1,6 +1,6 @@
-import { desc, eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { categories, items, postalServices, shops } from "@/db/schema";
+import { categories, items, listings, postalServices, shops } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { itemProfit } from "@/lib/items";
 
@@ -24,6 +24,17 @@ export async function GET() {
     .where(eq(items.userId, user.id))
     .orderBy(desc(items.boughtAt), desc(items.id));
 
+  // Links from every listing of each item (several platforms are joined with " | "); older items fall back to the stored link
+  const links = new Map<number, string[]>();
+  for (const l of await db
+    .select({ itemId: listings.itemId, url: listings.url })
+    .from(listings)
+    .innerJoin(items, eq(listings.itemId, items.id))
+    .where(eq(items.userId, user.id))
+    .orderBy(asc(listings.id))) {
+    if (l.url) links.set(l.itemId, [...(links.get(l.itemId) ?? []), l.url]);
+  }
+
   const head = [
     "Item", "Status", "Brand", "Size", "Condition", "Category", "Charity shop", "Date bought", "Paid",
     "Date listed", "Asking price", "Date sold", "Sold for", "Postage service", "Date posted",
@@ -36,7 +47,7 @@ export async function GET() {
       [
         i.name, i.status, i.brand, i.size, i.condition, category, shop, i.boughtAt, i.buyPrice,
         i.listedAt, i.listPrice, i.soldAt, i.soldPrice, postal, i.postedAt,
-        i.returnedAt, i.refundAmount, profit === null ? "" : profit.toFixed(2), i.notes, i.vintedUrl,
+        i.returnedAt, i.refundAmount, profit === null ? "" : profit.toFixed(2), i.notes, (links.get(i.id) ?? (i.vintedUrl ? [i.vintedUrl] : [])).join(" | "),
       ].map(cell).join(","),
     );
   }
