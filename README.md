@@ -44,7 +44,7 @@ A mobile-first web app for resellers: record what you buy, list, sell and post, 
 | Preview deployments | Off (Ignored Build Step = Only build production) |
 | Trial-reminder emails (daily cron) | Built; first scheduled run not yet confirmed in Vercel's logs |
 
-**People and data.** The first testers (the owner's wife and a friend) are marked **"free forever"** (`billing_exempt`) and are never locked. The migration that shipped billing set `billing_exempt = true` for every account that existed at that moment. Admins are never billed either.
+**People and data.** The first testers (the owner's wife and a friend; the wife now uses the app from the new domain) are marked **"free forever"** (`billing_exempt`) and are never locked. The migration that shipped billing set `billing_exempt = true` for every account that existed at that moment. Admins are never billed either.
 
 **Before real customers pay** (see [Open items](#16-open-items-and-backlog)): live Stripe keys and webhook, business status and VAT, a professional review of the terms (including the 14-day refund promise), and a few housekeeping items.
 
@@ -352,7 +352,7 @@ Set in **Vercel → Settings → Environment Variables** (Production). Locally, 
 3. Configure the **Customer portal in live mode** too (sandbox settings don't carry over).
 4. Redeploy, then make one real £3 payment on your own card and refund it; check Billing, the webhook delivery (200), and cancel flow.
 
-**Rotating secrets.** Railway password → update `DATABASE_URL` in Vercel → redeploy. Stripe or Resend keys → update in Vercel → redeploy.
+**Rotating secrets.** Railway password: use **Regenerate** (Postgres service → Database → Config → Connection), never edit the password variable by hand (that changes only the variable, not the real password). Then copy the new `DATABASE_PUBLIC_URL` (the full `postgresql://user:password@host:port/db` string) into `DATABASE_URL` in Vercel and redeploy; the site can't reach its database in between, so do it quickly at a quiet time. Keep the URL out of chats and screenshots. Stripe or Resend keys → update in Vercel → redeploy.
 
 **Backups.** Rely on Railway's database backups (confirm they're switched on). The CSV export is a per-user safety net.
 
@@ -413,7 +413,7 @@ npm run dev
 | #17–#19 | Admin trial buttons: confirmations, End trial now, shown only where they apply |
 | #20 | Change email (user and admin) |
 | #21 | Stop iPhones zooming into fields |
-| Launch prep | Domain `hiddengemsapp.co.uk`, `APP_URL`, webhook moved to the new domain; preview builds switched off |
+| Launch prep | Domain `hiddengemsapp.co.uk`, `APP_URL`, webhook moved to the new domain; preview builds switched off; database password rotated |
 
 ---
 
@@ -423,8 +423,8 @@ npm run dev
 - [ ] Live Stripe keys, live webhook with its own secret, live Customer portal, a real £3 test payment and refund (see [Deploying](#12-deploying-and-operating)).
 - [ ] Business status (sole trader or limited company), VAT position, and a professional review of the terms and privacy notice (including the 14-day refund promise; add contact details and the business name).
 - [ ] Confirm the daily cron actually ran (Vercel → Cron Jobs).
-- [x] Housekeeping done: `SETUP_TOKEN` deleted; Vercel Ignored Build Step set to Only build production.
-- [ ] Housekeeping still to do: rotate the Railway database password and update `DATABASE_URL`; confirm Railway backups; test a real photo upload on a phone.
+- [x] Housekeeping done: `SETUP_TOKEN` deleted; Vercel Ignored Build Step set to Only build production; Railway database password regenerated (22 Nov 2026) and `DATABASE_URL` in Vercel updated.
+- [ ] Housekeeping still to do: confirm Railway backups are on; test a real photo upload on a phone.
 
 **Product ideas offered but not started**
 - Account deletion and a fuller data export in Settings.
