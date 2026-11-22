@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { platforms, postalServices } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { ListManager } from "@/components/ListManager";
+import { PlatformFeesForm } from "@/components/PlatformFeesForm";
 
 export default async function PlatformsPage() {
   const user = await requireUser();
@@ -18,6 +19,7 @@ export default async function PlatformsPage() {
         <h1 className="mt-1 text-2xl font-extrabold tracking-tight">Platforms & postage</h1>
       </div>
       <ListManager kind="platforms" title="Selling platforms" hint="Where you list and sell. Choose them when you list an item or mark it sold. Hide ones you no longer use; past sales keep their history." entries={pl} />
+      <PlatformFeesForm platforms={pl} />
       <ListManager kind="postal" title="Postal services" hint="Choose one when you mark a posted item as sold. Hide ones you no longer use; past sales keep their history." entries={po} />
     </div>
   );

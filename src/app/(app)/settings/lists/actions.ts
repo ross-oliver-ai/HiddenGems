@@ -80,3 +80,21 @@ export async function updateTargetsAction(_prev: ListState & { ok?: boolean }, f
   revalidatePath("/", "layout");
   return { ok: true };
 }
+
+export async function updateFeesAction(_prev: ListState & { ok?: boolean }, formData: FormData): Promise<ListState & { ok?: boolean }> {
+  const user = await requireWritableUser();
+  const mine = await db.select({ id: platforms.id }).from(platforms).where(eq(platforms.userId, user.id));
+  const updates: { id: number; fee: string }[] = [];
+  for (const { id } of mine) {
+    const raw = String(formData.get(`fee_${id}`) ?? "").replace(/[%\s]/g, "").replace(",", ".");
+    if (raw === "") { updates.push({ id, fee: "0.00" }); continue; }
+    const n = Number(raw);
+    if (!/^\d+(\.\d{1,2})?$/.test(raw) || !Number.isFinite(n) || n > 100) return { error: "Fees must be a percentage between 0 and 100." };
+    updates.push({ id, fee: n.toFixed(2) });
+  }
+  await db.transaction(async (tx) => {
+    for (const u of updates) await tx.update(platforms).set({ feePercent: u.fee }).where(and(eq(platforms.id, u.id), eq(platforms.userId, user.id)));
+  });
+  revalidateSettingsLists();
+  return { ok: true };
+}

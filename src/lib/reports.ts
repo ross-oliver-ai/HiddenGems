@@ -15,6 +15,8 @@ type Outcome = {
   postal: string | null; // null for write-offs
   revenue: number;
   cost: number;
+  /** Platform fees plus postage the seller paid on this sale (0 for write-offs) */
+  fees: number;
   profit: number;
   sale: boolean;
   daysToSell: number | null;
@@ -30,6 +32,8 @@ export type Report = {
     boughtCount: number;
     revenue: number;
     cogs: number;
+    /** Platform fees plus postage paid, on sales in the period */
+    fees: number;
     writtenOff: number;
     profit: number;
     margin: number | null;
@@ -112,18 +116,20 @@ export async function computeReport(user: User, input: PeriodInput): Promise<Rep
       const common = { name: i.name, category: category ?? "No category", shop: shop ?? "No shop" };
       if (i.soldAt && inR(i.soldAt)) {
         const revenue = Number(i.soldPrice ?? 0) - Number(i.refundAmount ?? 0);
+        const fees = Number(i.fees) + Number(i.postagePaid);
         out.push({
           ...common,
           date: i.soldAt,
           postal: postal ?? "Not set",
           revenue,
           cost,
-          profit: revenue - cost,
+          fees,
+          profit: revenue - fees - cost,
           sale: true,
           daysToSell: daysBetween(i.listedAt ?? i.boughtAt, i.soldAt),
         });
       } else if ((i.status === "unsold" || i.status === "donated") && inR(londonDate(i.updatedAt))) {
-        out.push({ ...common, date: londonDate(i.updatedAt), postal: null, revenue: 0, cost, profit: -cost, sale: false, daysToSell: null });
+        out.push({ ...common, date: londonDate(i.updatedAt), postal: null, revenue: 0, cost, fees: 0, profit: -cost, sale: false, daysToSell: null });
       }
     }
     return out;
@@ -137,8 +143,10 @@ export async function computeReport(user: User, input: PeriodInput): Promise<Rep
   const spent = bought.reduce((s, i) => s + Number(i.buyPrice), 0);
   const revenue = sales.reduce((s, o) => s + o.revenue, 0);
   const cogs = sales.reduce((s, o) => s + o.cost, 0);
+  const fees = sales.reduce((s, o) => s + o.fees, 0);
   const writtenOff = writeOffs.reduce((s, o) => s + o.cost, 0);
-  const profit = revenue - cogs - writtenOff;
+  const salesProfit = revenue - fees - cogs; // what the sales made after fees and postage, before write-offs
+  const profit = salesProfit - writtenOff;
   const dts = sales.map((o) => o.daysToSell!).filter((n) => n !== null);
 
   // Time series
@@ -200,12 +208,13 @@ export async function computeReport(user: User, input: PeriodInput): Promise<Rep
       boughtCount: bought.length,
       revenue: r2(revenue),
       cogs: r2(cogs),
+      fees: r2(fees),
       writtenOff: r2(writtenOff),
       profit: r2(profit),
-      margin: revenue > 0 ? r2(((revenue - cogs) / revenue) * 100) : null,
-      roi: cogs > 0 ? r2(((revenue - cogs) / cogs) * 100) : null,
+      margin: revenue > 0 ? r2((salesProfit / revenue) * 100) : null,
+      roi: cogs > 0 ? r2((salesProfit / cogs) * 100) : null,
       soldCount: sales.length,
-      avgProfit: sales.length ? r2((revenue - cogs) / sales.length) : null,
+      avgProfit: sales.length ? r2(salesProfit / sales.length) : null,
       avgDaysToSell: dts.length ? Math.round((dts.reduce((a, b) => a + b, 0) / dts.length) * 10) / 10 : null,
       sellThrough: bought.length ? { sold: bought.filter((i) => i.soldAt).length, of: bought.length } : null,
     },

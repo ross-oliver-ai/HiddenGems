@@ -38,7 +38,7 @@ export async function GET() {
   const head = [
     "Item", "Status", "Brand", "Size", "Condition", "Category", "Charity shop", "Date bought", "Paid",
     "Date listed", "Asking price", "Date sold", "Sold for", "Postage service", "Date posted",
-    "Date returned", "Refund", "Profit", "Notes", "Listing link",
+    "Date returned", "Refund", "Fees", "Postage paid", "Profit", "Notes", "Listing link",
   ];
   const lines = [head.map(cell).join(",")];
   for (const { item: i, shop, category, postal } of rows) {
@@ -47,7 +47,7 @@ export async function GET() {
       [
         i.name, i.status, i.brand, i.size, i.condition, category, shop, i.boughtAt, i.buyPrice,
         i.listedAt, i.listPrice, i.soldAt, i.soldPrice, postal, i.postedAt,
-        i.returnedAt, i.refundAmount, profit === null ? "" : profit.toFixed(2), i.notes, (links.get(i.id) ?? (i.vintedUrl ? [i.vintedUrl] : [])).join(" | "),
+        i.returnedAt, i.refundAmount, i.fees, i.postagePaid, profit === null ? "" : profit.toFixed(2), i.notes, (links.get(i.id) ?? (i.vintedUrl ? [i.vintedUrl] : [])).join(" | "),
       ].map(cell).join(","),
     );
   }

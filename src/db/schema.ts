@@ -119,6 +119,8 @@ export const platforms = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     archived: boolean("archived").notNull().default(false),
+    // Optional selling fee as a percentage of the sold price. 0 = none. Only used to pre-fill the fee on a sale.
+    feePercent: numeric("fee_percent", { precision: 5, scale: 2 }).notNull().default("0"),
   },
   (t) => [index("platforms_user_idx").on(t.userId)],
 );
@@ -160,6 +162,9 @@ export const items = pgTable(
     postedAt: date("posted_at"), // when it was posted, or handed over for collected/delivered items
     soldPlatformId: integer("sold_platform_id").references(() => platforms.id, { onDelete: "set null" }),
     handover: handoverEnum("handover"),
+    // What the sale cost the seller: platform fees (a £ amount fixed at the sale) and postage/delivery they paid. 0 = none.
+    fees: numeric("fees", { precision: 10, scale: 2 }).notNull().default("0"),
+    postagePaid: numeric("postage_paid", { precision: 10, scale: 2 }).notNull().default("0"),
 
     // returned / refunded
     returnedAt: date("returned_at"),

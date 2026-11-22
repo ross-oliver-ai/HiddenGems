@@ -37,11 +37,18 @@ export const FILTERS: { id: string; label: string; statuses: ItemStatus[] | null
 
 const SOLD_STATUSES: ItemStatus[] = ["sold", "posted", "completed"];
 
-/** Profit/loss for an item once its outcome is known, else null. */
-export function itemProfit(i: Pick<Item, "status" | "soldPrice" | "buyPrice" | "refundAmount">): number | null {
+/**
+ * Profit/loss for an item once its outcome is known, else null.
+ * Sold: sold price - fees - postage paid - cost. Returned: sold price - refund - fees - postage paid - cost
+ * (fees and postage already paid still count unless the seller edits them). Unsold/donated: -cost.
+ * Old sales have fees and postage of 0, so their profit is unchanged.
+ */
+export function itemProfit(i: Pick<Item, "status" | "soldPrice" | "buyPrice" | "refundAmount" | "fees" | "postagePaid">): number | null {
   const buy = Number(i.buyPrice);
-  if (SOLD_STATUSES.includes(i.status)) return Number(i.soldPrice ?? 0) - buy;
-  if (i.status === "returned") return Number(i.soldPrice ?? 0) - Number(i.refundAmount ?? 0) - buy;
+  const costs = Number(i.fees ?? 0) + Number(i.postagePaid ?? 0);
+  const pennies = (n: number) => Math.round(n * 100) / 100; // avoid 0.1 + 0.2 style noise
+  if (SOLD_STATUSES.includes(i.status)) return pennies(Number(i.soldPrice ?? 0) - costs - buy);
+  if (i.status === "returned") return pennies(Number(i.soldPrice ?? 0) - Number(i.refundAmount ?? 0) - costs - buy);
   if (i.status === "unsold" || i.status === "donated") return -buy;
   return null;
 }

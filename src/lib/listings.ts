@@ -17,7 +17,7 @@ type Q = typeof db | Tx;
 
 /** The platforms someone can currently choose (hidden ones excluded), in the order they were added. */
 export async function activePlatforms(userId: number, q: Q = db) {
-  return q.select({ id: platforms.id, name: platforms.name }).from(platforms).where(and(eq(platforms.userId, userId), eq(platforms.archived, false))).orderBy(asc(platforms.id));
+  return q.select({ id: platforms.id, name: platforms.name, feePercent: platforms.feePercent }).from(platforms).where(and(eq(platforms.userId, userId), eq(platforms.archived, false))).orderBy(asc(platforms.id));
 }
 
 export async function listingsFor(itemId: number, q: Q = db) {
@@ -132,7 +132,7 @@ export async function listOn(userId: number, itemId: number, entries: ListEntry[
           status: "listed",
           listedAt: when,
           listPrice: entries[0].price!,
-          ...(mode === "relist" ? { soldAt: null, soldPrice: null, postedAt: null, returnedAt: null, refundAmount: null, postalServiceId: null, soldPlatformId: null, handover: null } : {}),
+          ...(mode === "relist" ? { soldAt: null, soldPrice: null, postedAt: null, returnedAt: null, refundAmount: null, postalServiceId: null, soldPlatformId: null, handover: null, fees: "0.00", postagePaid: "0.00" } : {}),
           updatedAt: new Date(),
         })
         .where(eq(items.id, itemId));
@@ -217,6 +217,9 @@ export type SaleInput = {
   when: string;
   handover: string;
   postalServiceId: number | null;
+  /** Platform fees on this sale (£, "0.00" if none) and postage/delivery the seller paid */
+  fees: string;
+  postagePaid: string;
   /** For collected / delivered items: has it been handed over already? */
   handedOver: boolean;
 };
@@ -251,6 +254,8 @@ export async function sellItem(userId: number, itemId: number, sale: SaleInput):
         soldPlatformId: platform.id,
         handover: sale.handover,
         postalServiceId: postalId,
+        fees: sale.fees,
+        postagePaid: sale.postagePaid,
         postedAt: handedOver ? sale.when : null,
         updatedAt: new Date(),
       })

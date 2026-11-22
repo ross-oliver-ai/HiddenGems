@@ -181,7 +181,7 @@ describe("listings and sales", { skip: dbSkipReason }, () => {
 
   describe("selling", () => {
     const sale = (platformId: number, over: Partial<Parameters<typeof L.sellItem>[2]> = {}) => ({
-      platformId, price: "18.00", when: "2026-02-20", handover: "posted", postalServiceId: null, handedOver: false, ...over,
+      platformId, price: "18.00", when: "2026-02-20", handover: "posted", postalServiceId: null, fees: "0.00", postagePaid: "0.00", handedOver: false, ...over,
     });
 
     it("records which platform it sold on and ends every listing", async () => {
@@ -254,18 +254,42 @@ describe("listings and sales", { skip: dbSkipReason }, () => {
     });
   });
 
+  describe("fees and postage paid on a sale", () => {
+    it("are stored on the sale exactly as given", async () => {
+      const t = await setup("fees1@example.com");
+      const item = await t.newItem();
+      await L.listOn(t.u.id, item.id, [ent(t.p.Vinted, "20.00")], "2026-02-01", "list");
+      await L.sellItem(t.u.id, item.id, { platformId: t.p.Vinted, price: "18.00", when: "2026-02-10", handover: "posted", postalServiceId: null, fees: "1.44", postagePaid: "2.50", handedOver: false });
+      const after = await t.get(item.id);
+      assert.deepEqual([after.fees, after.postagePaid], ["1.44", "2.50"]);
+    });
+    it("default to nothing, so a plain sale has no costs", async () => {
+      const t = await setup("fees2@example.com");
+      const item = await t.newItem();
+      await L.listOn(t.u.id, item.id, [ent(t.p.Vinted, "20.00")], "2026-02-01", "list");
+      await L.sellItem(t.u.id, item.id, { platformId: t.p.Vinted, price: "18.00", when: "2026-02-10", handover: "posted", postalServiceId: null, fees: "0.00", postagePaid: "0.00", handedOver: false });
+      const after = await t.get(item.id);
+      assert.deepEqual([after.fees, after.postagePaid], ["0.00", "0.00"]);
+    });
+    it("a platform's fee % is stored as a number and defaults to 0", async () => {
+      const t = await setup("fees3@example.com");
+      const rows = await dbm.db.select().from(s.platforms).where(eq(s.platforms.userId, t.u.id));
+      assert.ok(rows.length > 0 && rows.every((r) => r.feePercent === "0.00"));
+    });
+  });
+
   describe("relisting after a return", () => {
     it("clears the old sale, keeps the history, and lists afresh", async () => {
       const t = await setup("relist@example.com");
       const item = await t.newItem();
       await L.listOn(t.u.id, item.id, [ent(t.p.Vinted, "20.00")], "2026-02-01", "list");
-      await L.sellItem(t.u.id, item.id, { platformId: t.p.Vinted, price: "18.00", when: "2026-02-10", handover: "posted", postalServiceId: t.rm.id, handedOver: false });
+      await L.sellItem(t.u.id, item.id, { platformId: t.p.Vinted, price: "18.00", when: "2026-02-10", handover: "posted", postalServiceId: t.rm.id, fees: "1.44", postagePaid: "2.50", handedOver: false });
       await dbm.db.update(s.items).set({ status: "returned", returnedAt: "2026-02-15", refundAmount: "18.00" }).where(eq(s.items.id, item.id));
       assert.deepEqual(await L.listOn(t.u.id, item.id, [ent(t.p.eBay, "17.00")], "2026-02-16", "relist"), { ok: true });
       const after = await t.get(item.id);
       assert.deepEqual(
-        [after.status, after.listedAt, after.listPrice, after.soldAt, after.soldPrice, after.soldPlatformId, after.handover, after.postalServiceId, after.returnedAt, after.refundAmount],
-        ["listed", "2026-02-16", "17.00", null, null, null, null, null, null, null],
+        [after.status, after.listedAt, after.listPrice, after.soldAt, after.soldPrice, after.soldPlatformId, after.handover, after.postalServiceId, after.returnedAt, after.refundAmount, after.fees, after.postagePaid],
+        ["listed", "2026-02-16", "17.00", null, null, null, null, null, null, null, "0.00", "0.00"],
       );
       const all = await L.listingsFor(item.id);
       assert.deepEqual(all.map((x) => [x.platform, x.listing.endedAt]), [["Vinted", "2026-02-10"], ["eBay", null]]);
