@@ -1,6 +1,8 @@
 import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { categories, items, listings, postalServices, shops } from "@/db/schema";
+import { categories, items, listings, platforms, postalServices, shops } from "@/db/schema";
+import { HANDOVER_LABEL } from "@/lib/listing-labels";
+import { alias } from "drizzle-orm/pg-core";
 import { getCurrentUser } from "@/lib/auth";
 import { itemProfit } from "@/lib/items";
 
@@ -15,9 +17,11 @@ export async function GET() {
   const user = await getCurrentUser();
   if (!user || user.mustChangePassword) return new Response("Not signed in", { status: 401 });
 
+  const soldPlatform = alias(platforms, "sold_platform");
   const rows = await db
-    .select({ item: items, shop: shops.name, category: categories.name, postal: postalServices.name })
+    .select({ item: items, shop: shops.name, category: categories.name, postal: postalServices.name, soldOn: soldPlatform.name })
     .from(items)
+    .leftJoin(soldPlatform, eq(items.soldPlatformId, soldPlatform.id))
     .leftJoin(shops, eq(items.shopId, shops.id))
     .leftJoin(categories, eq(items.categoryId, categories.id))
     .leftJoin(postalServices, eq(items.postalServiceId, postalServices.id))
@@ -37,16 +41,16 @@ export async function GET() {
 
   const head = [
     "Item", "Status", "Brand", "Size", "Condition", "Category", "Charity shop", "Date bought", "Paid",
-    "Date listed", "Asking price", "Date sold", "Sold for", "Postage service", "Date posted",
+    "Date listed", "Asking price", "Date sold", "Sold for", "Sold on", "How it got there", "Postage service", "Date posted",
     "Date returned", "Refund", "Fees", "Postage paid", "Profit", "Notes", "Listing link",
   ];
   const lines = [head.map(cell).join(",")];
-  for (const { item: i, shop, category, postal } of rows) {
+  for (const { item: i, shop, category, postal, soldOn } of rows) {
     const profit = itemProfit(i);
     lines.push(
       [
         i.name, i.status, i.brand, i.size, i.condition, category, shop, i.boughtAt, i.buyPrice,
-        i.listedAt, i.listPrice, i.soldAt, i.soldPrice, postal, i.postedAt,
+        i.listedAt, i.listPrice, i.soldAt, i.soldPrice, soldOn, i.handover ? HANDOVER_LABEL[i.handover] : "", postal, i.postedAt,
         i.returnedAt, i.refundAmount, i.fees, i.postagePaid, profit === null ? "" : profit.toFixed(2), i.notes, (links.get(i.id) ?? (i.vintedUrl ? [i.vintedUrl] : [])).join(" | "),
       ].map(cell).join(","),
     );

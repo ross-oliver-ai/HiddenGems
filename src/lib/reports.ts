@@ -1,6 +1,8 @@
 import { eq } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db";
-import { categories, items, postalServices, shops, type User } from "@/db/schema";
+import { categories, items, listings, platforms, postalServices, shops, type User } from "@/db/schema";
+import { HANDOVER_LABEL } from "./listing-labels";
 import { daysBetween, todayLondon } from "./format";
 import { bucketKey, listBuckets, prorateGoal, resolvePeriod, type Period, type PeriodInput } from "./periods";
 
@@ -13,6 +15,8 @@ type Outcome = {
   category: string;
   shop: string;
   postal: string | null; // null for write-offs
+  platform: string | null; // the platform it sold on; null for write-offs
+  handover: string | null; // how it got to the buyer; null for write-offs
   revenue: number;
   cost: number;
   /** Platform fees plus postage the seller paid on this sale (0 for write-offs) */
@@ -21,6 +25,18 @@ type Outcome = {
   sale: boolean;
   daysToSell: number | null;
 };
+
+/** One row of the "by platform" report. Sales only: write-offs belong to no platform. */
+export type PlatformRow = {
+  name: string;
+  profit: number; // after fees and postage
+  sold: number;
+  /** Average days from first listing to sale, for sales on this platform */
+  avgDays: number | null;
+  /** Of the items first listed here in the period (distinct items), how many ended up selling on this platform */
+  sellThrough: { sold: number; of: number } | null;
+};
+export type HandoverRow = { name: string; sold: number; profit: number };
 
 export type Ranked = { name: string; value: number; items: number; spent?: number; roi?: number | null };
 
@@ -47,6 +63,8 @@ export type Report = {
   byCategory: Ranked[];
   byShop: Ranked[];
   byPostal: Ranked[];
+  byPlatform: PlatformRow[];
+  byHandover: HandoverRow[];
   best: { id?: number; name: string; profit: number }[];
   worst: { name: string; profit: number }[];
   stock: {
@@ -93,9 +111,11 @@ function rank(outcomes: Outcome[], keyOf: (o: Outcome) => string | null, onlySal
 }
 
 export async function computeReport(user: User, input: PeriodInput): Promise<Report> {
+  const soldPlatform = alias(platforms, "sold_platform");
   const rows = await db
-    .select({ item: items, shop: shops.name, category: categories.name, postal: postalServices.name })
+    .select({ item: items, shop: shops.name, category: categories.name, postal: postalServices.name, soldOn: soldPlatform.name })
     .from(items)
+    .leftJoin(soldPlatform, eq(items.soldPlatformId, soldPlatform.id))
     .leftJoin(shops, eq(items.shopId, shops.id))
     .leftJoin(categories, eq(items.categoryId, categories.id))
     .leftJoin(postalServices, eq(items.postalServiceId, postalServices.id))
@@ -111,7 +131,7 @@ export async function computeReport(user: User, input: PeriodInput): Promise<Rep
   const outcomes = (range: { from: string; to: string }): Outcome[] => {
     const inR = (d: string | null) => !!d && d >= range.from && d <= range.to;
     const out: Outcome[] = [];
-    for (const { item: i, shop, category, postal } of rows) {
+    for (const { item: i, shop, category, postal, soldOn } of rows) {
       const cost = Number(i.buyPrice);
       const common = { name: i.name, category: category ?? "No category", shop: shop ?? "No shop" };
       if (i.soldAt && inR(i.soldAt)) {
@@ -121,6 +141,8 @@ export async function computeReport(user: User, input: PeriodInput): Promise<Rep
           ...common,
           date: i.soldAt,
           postal: postal ?? "Not set",
+          platform: soldOn ?? "Not set",
+          handover: i.handover ? HANDOVER_LABEL[i.handover] : "Not set",
           revenue,
           cost,
           fees,
@@ -129,7 +151,7 @@ export async function computeReport(user: User, input: PeriodInput): Promise<Rep
           daysToSell: daysBetween(i.listedAt ?? i.boughtAt, i.soldAt),
         });
       } else if ((i.status === "unsold" || i.status === "donated") && inR(londonDate(i.updatedAt))) {
-        out.push({ ...common, date: londonDate(i.updatedAt), postal: null, revenue: 0, cost, fees: 0, profit: -cost, sale: false, daysToSell: null });
+        out.push({ ...common, date: londonDate(i.updatedAt), postal: null, platform: null, handover: null, revenue: 0, cost, fees: 0, profit: -cost, sale: false, daysToSell: null });
       }
     }
     return out;
@@ -197,6 +219,42 @@ export async function computeReport(user: User, input: PeriodInput): Promise<Rep
         }
       : null;
 
+  // By platform: what sold where, and how often listings there turn into sales
+  const listedHere = new Map<string, Set<number>>(); // platform name -> items first listed there in the period
+  for (const l of await db
+    .select({ itemId: listings.itemId, listedAt: listings.listedAt, platform: platforms.name })
+    .from(listings)
+    .innerJoin(items, eq(listings.itemId, items.id))
+    .innerJoin(platforms, eq(listings.platformId, platforms.id))
+    .where(eq(items.userId, user.id))) {
+    if (!inRange(l.listedAt)) continue;
+    listedHere.set(l.platform, (listedHere.get(l.platform) ?? new Set()).add(l.itemId));
+  }
+  const soldOnByItem = new Map(rows.map((r) => [r.item.id, r.item.soldAt ? r.soldOn : null]));
+  const platformNames = new Set<string>([...sales.map((o) => o.platform!), ...listedHere.keys()]);
+  const byPlatform: PlatformRow[] = [...platformNames]
+    .map((name) => {
+      const here = sales.filter((o) => o.platform === name);
+      const days = here.map((o) => o.daysToSell).filter((n): n is number => n !== null);
+      const listed = listedHere.get(name);
+      return {
+        name,
+        profit: r2(here.reduce((t, o) => t + o.profit, 0)),
+        sold: here.length,
+        avgDays: days.length ? Math.round((days.reduce((a, b) => a + b, 0) / days.length) * 10) / 10 : null,
+        sellThrough: listed ? { sold: [...listed].filter((id) => soldOnByItem.get(id) === name).length, of: listed.size } : null,
+      };
+    })
+    .sort((a, b) => b.profit - a.profit || b.sold - a.sold || a.name.localeCompare(b.name));
+
+  const handoverNames = [...new Set(sales.map((o) => o.handover!))];
+  const byHandover: HandoverRow[] = handoverNames
+    .map((name) => {
+      const here = sales.filter((o) => o.handover === name);
+      return { name, sold: here.length, profit: r2(here.reduce((t, o) => t + o.profit, 0)) };
+    })
+    .sort((a, b) => b.sold - a.sold || b.profit - a.profit || a.name.localeCompare(b.name));
+
   const sorted = [...sales].sort((a, b) => b.profit - a.profit);
   const topShops = rank(out, (o) => o.shop);
 
@@ -222,6 +280,8 @@ export async function computeReport(user: User, input: PeriodInput): Promise<Rep
     byCategory: rank(out, (o) => o.category),
     byShop: topShops,
     byPostal: rank(out, (o) => o.postal, true),
+    byPlatform,
+    byHandover,
     best: sorted.filter((o) => o.profit > 0).slice(0, 5).map((o) => ({ name: o.name, profit: r2(o.profit) })),
     worst: sorted.slice(-5).filter((o) => o.profit < 0).reverse().map((o) => ({ name: o.name, profit: r2(o.profit) })),
     stock: {
