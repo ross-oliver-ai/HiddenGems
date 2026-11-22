@@ -231,14 +231,14 @@ export function SpentRevenueChart({ data, drill = null }: { data: SeriesPoint[];
   );
 }
 
-export type RankedRow = { name: string; value: number; items: number; roi?: number | null };
+export type RankedRow = { name: string; value: number; items: number; roi?: number | null; /** Extra text after the value, e.g. "19 sold" */ note?: string };
 
 /** Ranked horizontal bars, one hue; negative values turn red. */
-export function RankedBars({ rows, kind, label }: { rows: RankedRow[]; kind: "money" | "count"; label: string }) {
+export function RankedBars({ rows, kind, label, rightMargin = 56 }: { rows: RankedRow[]; kind: "money" | "count"; label: string; /** Room for the text after each bar; raise it when rows carry a note */ rightMargin?: number }) {
   const fmtVal = (n: number) => (kind === "money" ? signed(n) : String(n));
   return (
     <ChartBox height={Math.max(90, rows.length * 38 + 16)} label={label}>
-      <BarChart data={rows} layout="vertical" margin={{ top: 0, right: 56, bottom: 0, left: 0 }} barCategoryGap="30%">
+      <BarChart data={rows} layout="vertical" margin={{ top: 0, right: rightMargin, bottom: 0, left: 0 }} barCategoryGap="30%">
         <XAxis type="number" hide domain={[(min: number) => Math.min(0, min), (max: number) => Math.max(0, max)]} />
         <YAxis
           type="category"
@@ -267,12 +267,14 @@ export function RankedBars({ rows, kind, label }: { rows: RankedRow[]; kind: "mo
           <LabelList
             dataKey="value"
             content={(props) => {
-              const { x = 0, y = 0, width = 0, height = 0, value } = props as { x?: number; y?: number; width?: number; height?: number; value?: number | string };
+              const { x = 0, y = 0, width = 0, height = 0, value, index = 0 } = props as { x?: number; y?: number; width?: number; height?: number; value?: number | string; index?: number };
+              const note = rows[Number(index)]?.note;
               // label sits just past the right-hand end of the bar (the zero line for negative bars)
               const right = Math.max(Number(x), Number(x) + Number(width));
               return (
                 <text x={right + 6} y={Number(y) + Number(height) / 2} dominantBaseline="central" fontSize={12} fontWeight={700} fill="var(--foreground)">
                   {fmtVal(Number(value))}
+                  {note && <tspan fontWeight={500} fill={TEXT}>{` · ${note}`}</tspan>}
                 </text>
               );
             }}

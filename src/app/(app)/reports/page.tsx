@@ -275,10 +275,14 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
 
       <ChartCard
         title="How items got to the buyer"
-        subtitle="Items sold, with the profit they made"
+        subtitle="Profit for each method, and how many items were sold that way"
         table={{ head: ["Method", "Sold", "Profit"], rows: r.byHandover.map((x) => [x.name, x.sold, signed(x.profit)]) }}
       >
-        {r.byHandover.length === 0 ? <Empty>No sales yet.</Empty> : <RankedBars rows={r.byHandover.map((x) => ({ name: x.name, value: x.sold, items: x.sold }))} kind="count" label="Items sold by handover method" />}
+        {r.byHandover.length === 0 ? (
+          <Empty>No sales yet.</Empty>
+        ) : (
+          <RankedBars rows={r.byHandover.map((x) => ({ name: x.name, value: x.profit, items: x.sold, note: `${x.sold} sold` }))} kind="money" label="Profit by handover method" rightMargin={120} />
+        )}
       </ChartCard>
 
       <ChartCard
