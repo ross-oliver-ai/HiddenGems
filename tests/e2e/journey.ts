@@ -202,6 +202,12 @@ async function main() {
     const rep = await body(page);
     check("reports add up both sales after fees (revenue £25.00, profit £15.50)", rep.includes("£25.00") && rep.includes("£15.50") && rep.includes("£3.50 fees and postage"), rep.slice(0, 300));
     // The second item was pre-set to the platforms used last time (Vinted and eBay), so each platform listed 2 items and sold 1
+    check("reports show percentages as whole numbers (no 62.00%)", !/\d+\.\d+%/.test(rep), (rep.match(/\d+\.\d+%/g) ?? []).join(","));
+    const periodTops = await page.locator("a[href^='/reports?p=']").evaluateAll((els) => els.slice(0, 7).map((e) => Math.round(e.getBoundingClientRect().top)));
+    check("the report period chips wrap onto rows instead of scrolling sideways", new Set(periodTops).size >= 2, JSON.stringify(periodTops));
+    await page.locator("summary:has-text('How these numbers are worked out')").click();
+    const help = await body(page);
+    check("the 'how these numbers are worked out' box says fees and postage you paid are taken off", /fees and any postage you paid/.test(help) && !/buyers pay it/.test(help));
     check("reports show the selling platforms with their sell-through (each 1 of 2)", rep.includes("Selling platforms") && (rep.match(/50% \(1\/2\)/g) ?? []).length === 2, rep.slice(0, 600));
     check("reports show how items got to the buyer, with profit and the number sold", rep.includes("How items got to the buyer") && rep.includes("£7.50") && rep.includes("1 sold"), rep.slice(0, 600));
     const csv = await ctx.request.get(`${BASE}/reports/export`);

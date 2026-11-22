@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { Confetti } from "@/components/Confetti";
-import { money, todayLondon } from "@/lib/format";
+import { money, percent, todayLondon } from "@/lib/format";
 import { PERIODS } from "@/lib/periods";
 import { computeReport, type Ranked } from "@/lib/reports";
 import {
@@ -17,7 +17,6 @@ import {
 type Params = { p?: string; o?: string; from?: string; to?: string; at?: string; m?: string; y?: string };
 
 const signed = (n: number) => (n < 0 ? "−" : "") + money(Math.abs(n));
-const pct = (n: number | null) => (n === null ? "–" : `${n}%`);
 
 function fold(rows: Ranked[], keep = 8): Ranked[] {
   if (rows.length <= keep) return rows;
@@ -74,7 +73,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       <h1 className="text-2xl font-extrabold tracking-tight">Reports</h1>
 
       {/* Period picker */}
-      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+      <div className="flex flex-wrap gap-2">
         {PERIODS.map((x) => (
           <Link
             key={x.id}
@@ -191,10 +190,10 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       <div className="grid grid-cols-2 gap-3">
         <Tile label="Spent" value={money(kpi.spent)} sub={`${kpi.boughtCount} item${kpi.boughtCount === 1 ? "" : "s"} bought`} />
         <Tile label="Revenue" value={money(kpi.revenue)} sub={`${kpi.soldCount} item${kpi.soldCount === 1 ? "" : "s"} sold`} />
-        <Tile label="Profit margin" value={pct(kpi.margin)} sub="of revenue, before write-offs" />
-        <Tile label="Return on cost" value={pct(kpi.roi)} sub="profit ÷ cost of items sold" />
+        <Tile label="Profit margin" value={percent(kpi.margin)} sub="of revenue, before write-offs" />
+        <Tile label="Return on cost" value={percent(kpi.roi)} sub="profit as a % of what the items cost" />
         <Tile label="Avg profit per item" value={kpi.avgProfit === null ? "–" : signed(kpi.avgProfit)} />
-        <Tile label="Avg days to sell" value={kpi.avgDaysToSell === null ? "–" : kpi.avgDaysToSell} sub="from listing to sale" />
+        <Tile label="Avg days to sell" value={kpi.avgDaysToSell === null ? "–" : kpi.avgDaysToSell} sub="from first listing to sale" />
         <Tile
           label="Sell-through"
           value={kpi.sellThrough ? `${Math.round((kpi.sellThrough.sold / kpi.sellThrough.of) * 100)}%` : "–"}
@@ -232,7 +231,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       <ChartCard
         title="Best charity shops"
         subtitle="Profit by shop (tap a bar for return on cost)"
-        table={{ head: ["Shop", "Profit", "Sold", "Return"], rows: r.byShop.map((x) => [x.name, signed(x.value), x.items, pct(x.roi ?? null)]) }}
+        table={{ head: ["Shop", "Profit", "Sold", "Return"], rows: r.byShop.map((x) => [x.name, signed(x.value), x.items, percent(x.roi ?? null)]) }}
       >
         {r.byShop.length === 0 ? <Empty>No sales yet.</Empty> : <RankedBars rows={fold(r.byShop)} kind="money" label="Profit by charity shop" />}
       </ChartCard>
@@ -348,11 +347,11 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         <ul className="mt-3 list-disc space-y-1.5 pl-5 text-muted">
           <li><b className="text-foreground">Spent</b>: what you paid for items bought in the period (by buy date).</li>
           <li><b className="text-foreground">Revenue</b>: what items sold for in the period (by sold date), minus any refunds.</li>
-          <li><b className="text-foreground">Profit</b>: revenue minus what you paid for those same items, minus the cost of anything written off (marked unsold or donated) in the period.</li>
-          <li><b className="text-foreground">Profit margin</b>: profit from sales ÷ revenue. <b className="text-foreground">Return on cost</b>: profit from sales ÷ cost of items sold.</li>
+          <li><b className="text-foreground">Profit</b>: revenue, minus what you paid for those same items, minus the fees and any postage you paid, minus the cost of anything written off (marked unsold or donated) in the period.</li>
+          <li><b className="text-foreground">Profit margin</b>: profit from sales ÷ revenue. <b className="text-foreground">Return on cost</b>: profit from sales ÷ cost of the items sold, so 200% means £2 of profit for every £1 the items cost.</li>
           <li><b className="text-foreground">Sell-through</b>: of the items you bought in the period, how many have sold so far.</li>
-          <li><b className="text-foreground">Avg days to sell</b>: days from listing (or buying, if no listing date) to selling.</li>
-          <li>Postage isn&apos;t included in profit because buyers pay it.</li>
+          <li><b className="text-foreground">Avg days to sell</b>: days from the first listing (or from buying, if it was never listed) to selling.</li>
+          <li>Postage you paid is taken off profit. Postage a buyer pays is not counted.</li>
         </ul>
       </details>
 

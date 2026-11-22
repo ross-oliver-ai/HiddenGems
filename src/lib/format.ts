@@ -7,6 +7,12 @@ export function money(v: string | number | null | undefined): string {
   return gbp.format(Number(v));
 }
 
+/** A percentage as a whole number ("62%"), or a dash when there is nothing to show. */
+export function percent(n: number | null | undefined): string {
+  if (n === null || n === undefined || !Number.isFinite(n)) return "–";
+  return `${Math.round(n)}%`;
+}
+
 /** Parses "£1.50", "1,50", "1.5" -> "1.50". Returns null when empty/invalid. */
 export function parseMoney(raw: FormDataEntryValue | null | undefined): string | null {
   if (raw === null || raw === undefined) return null;
