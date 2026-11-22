@@ -5,11 +5,12 @@ import { db } from "@/db";
 import { users, type User } from "@/db/schema";
 import { readSession } from "./session";
 import { entitlement } from "./billing";
+import { timed } from "./timing";
 
 export const getCurrentUser = cache(async (): Promise<User | null> => {
   const session = await readSession();
   if (!session) return null;
-  const [user] = await db.select().from(users).where(eq(users.id, session.uid)).limit(1);
+  const [user] = await timed("Sign-in check", () => db.select().from(users).where(eq(users.id, session.uid)).limit(1));
   if (!user || user.disabled) return null;
   return user;
 });

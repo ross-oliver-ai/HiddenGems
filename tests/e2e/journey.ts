@@ -67,6 +67,8 @@ async function main() {
   try {
     // --- A normal seller ---
     const { ctx, page } = await signIn("trial@example.com");
+    // Home streams in after its loading placeholder, so wait for the real content rather than reading the page at once
+    await page.getByText("To list").first().waitFor({ timeout: 15_000 }).catch(() => {});
     check("signs in and lands on the home page", (await body(page)).includes("To list"));
 
     // wrong password is refused
@@ -199,13 +201,16 @@ async function main() {
 
     // --- Isolation: another account can't open this item ---
     const other = await signIn("locked@example.com");
-    const resp = await other.page.goto(`${BASE}/items/${id}`);
-    check("another account can't open someone else's item (404)", resp?.status() === 404, String(resp?.status()));
+    await other.page.goto(`${BASE}/items/${id}`);
+    // The page now streams (a loading placeholder first), so the status is 200 either way; what matters is what the person sees
+    const otherBody = await body(other.page);
+    check("another account can't open someone else's item (shows 'not found', nothing of the item)", otherBody.includes("could not be found") && !otherBody.includes("Journey boots"), otherBody.slice(0, 120));
     await other.ctx.close();
 
     // --- Expired trial: read-only ---
     const lk = await signIn("locked@example.com");
     await lk.page.goto(`${BASE}/items/new`);
+    await lk.page.waitForURL(/\/billing/, { timeout: 10_000 }).catch(() => {}); // the redirect now happens just after the loading placeholder
     check("an expired trial is sent to the billing page when adding", lk.page.url().includes("/billing"), lk.page.url());
     await lk.page.goto(`${BASE}/items`);
     check("...but can still see their items", (await body(lk.page)).includes("Locked user coat"));
