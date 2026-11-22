@@ -429,6 +429,7 @@ Without `TEST_DATABASE_URL` the database tests are **skipped with a message**, n
 - **Inputs must stay at 16px** (set globally in `globals.css`) and the viewport sets `maximum-scale=1`, otherwise iPhones zoom in when a field is focused. Pinch-zoom is blocked on Android as a result.
 - **Theme and mode** are `data-theme` / `data-mode` attributes on `<html>`, driven by the user's saved choice; signed-out pages follow the device setting.
 - **Don't import the database at build time** in new top-level code: `src/db/index.ts` throws if `DATABASE_URL` is missing (that's why preview builds fail).
+- **Test files run one at a time** (`--test-concurrency=1` in `npm test`) because they all share one throwaway database and several reset it; running them in parallel made them wipe each other's tables on GitHub.
 - **Tests wipe their database.** Only ever point `TEST_DATABASE_URL` at a throwaway database. When behaviour changes, update the tests in the same PR; when adding logic that handles money, access or data, add a test for it.
 - **Listings are the source of truth for what is on sale.** `items.listed_at` / `list_price` are only a summary and must be changed through `src/lib/listings.ts` (never directly), or the summary and the listings drift apart. New users get their platforms from `seedUserDefaults` (sign-up and admin create-user both call it).
 - **Rate-limit counts** for emails use tokens created in the last hour, whether or not they were used.
