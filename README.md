@@ -41,6 +41,7 @@ A mobile-first web app for resellers: record what you buy, list, sell and post, 
 | Free trial and read-only lock | Built, tested end to end, **on** |
 | Stripe subscriptions (£3/month) | Built, tested end to end in **Stripe sandbox (test mode)**. **Not yet on live Stripe keys** |
 | Custom domain | Live: `www.hiddengemsapp.co.uk` (DNS at Fasthosts, certificate by Vercel) |
+| Preview deployments | Off (Ignored Build Step = Only build production) |
 | Trial-reminder emails (daily cron) | Built; first scheduled run not yet confirmed in Vercel's logs |
 
 **People and data.** The first testers (the owner's wife and a friend) are marked **"free forever"** (`billing_exempt`) and are never locked. The migration that shipped billing set `billing_exempt = true` for every account that existed at that moment. Admins are never billed either.
@@ -322,7 +323,7 @@ Set in **Vercel → Settings → Environment Variables** (Production). Locally, 
 | `DATABASE_URL` | yes | Railway Postgres public URL |
 | `AUTH_SECRET` | yes | 32+ character random string for signing sessions (`openssl rand -base64 48`) |
 | `BLOB_READ_WRITE_TOKEN` or `BLOB_STORE_ID` | for photos | Added automatically when a Blob store is connected |
-| `SETUP_TOKEN` | first run only | Protects `/setup`; **delete after setup** |
+| `SETUP_TOKEN` | first run only | Protects `/setup`; **delete after setup** (already deleted in production) |
 | `APP_URL` | yes in practice | `https://www.hiddengemsapp.co.uk`; used for links in emails |
 | `RESEND_API_KEY`, `EMAIL_FROM` | for email | Together they switch email on, e.g. `Hidden Gems <hello@hiddengemsapp.co.uk>` |
 | `SIGNUPS_OPEN` | optional | `true` opens self sign-up (needs email) |
@@ -341,7 +342,7 @@ Set in **Vercel → Settings → Environment Variables** (Production). Locally, 
 
 **Deploy.** Merging to `main` triggers a Vercel **production** build. `npm run build` is `tsx scripts/build-migrate.ts && next build`: on production builds it first applies pending migrations; **if a migration fails the build fails and the live site stays on the previous version.** Migrations are additive, so rollback is safe.
 
-**Preview builds fail by design (harmless).** Preview deployments don't have `DATABASE_URL` (deliberately, so previews can't touch real data), and the build trips over it. To silence them, set Vercel → Settings → Git → **Ignored Build Step** to `[ "$VERCEL_ENV" != "production" ]`. Do **not** add the production database URL to Preview.
+**Only production builds run.** In Vercel → project → Settings → **Build and Deployment** → **Ignored Build Step**, the behaviour is set to **Only build production**, so branches and pull requests don't get preview builds. (They used to fail anyway: preview deployments have no `DATABASE_URL`, deliberately, so previews can't touch real data, and the build trips over it.) If previews are ever wanted again, give Preview its own empty test database; do **not** add the production database URL to Preview.
 
 **Domain.** Added in Vercel (apex and `www`); DNS at Fasthosts; HTTPS certificates are automatic and free. Sign-in cookies are per host, so people sign in once on a new domain, and anyone who installed the app from the old address should re-add it from the new one.
 
@@ -412,7 +413,7 @@ npm run dev
 | #17–#19 | Admin trial buttons: confirmations, End trial now, shown only where they apply |
 | #20 | Change email (user and admin) |
 | #21 | Stop iPhones zooming into fields |
-| Launch prep | Domain `hiddengemsapp.co.uk`, `APP_URL`, webhook moved to the new domain |
+| Launch prep | Domain `hiddengemsapp.co.uk`, `APP_URL`, webhook moved to the new domain; preview builds switched off |
 
 ---
 
@@ -422,7 +423,8 @@ npm run dev
 - [ ] Live Stripe keys, live webhook with its own secret, live Customer portal, a real £3 test payment and refund (see [Deploying](#12-deploying-and-operating)).
 - [ ] Business status (sole trader or limited company), VAT position, and a professional review of the terms and privacy notice (including the 14-day refund promise; add contact details and the business name).
 - [ ] Confirm the daily cron actually ran (Vercel → Cron Jobs).
-- [ ] Housekeeping: delete `SETUP_TOKEN`; rotate the Railway database password and update `DATABASE_URL`; confirm Railway backups; test a real photo upload on a phone; add the Vercel Ignored Build Step.
+- [x] Housekeeping done: `SETUP_TOKEN` deleted; Vercel Ignored Build Step set to Only build production.
+- [ ] Housekeeping still to do: rotate the Railway database password and update `DATABASE_URL`; confirm Railway backups; test a real photo upload on a phone.
 
 **Product ideas offered but not started**
 - Account deletion and a fuller data export in Settings.
