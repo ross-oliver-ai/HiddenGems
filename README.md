@@ -82,7 +82,7 @@ A mobile-first web app for resellers: record what you buy, list, sell and post, 
 - The admin account does not hold stock itself; it manages users.
 
 ### Public pages
-Landing page (`/welcome`, shown at `/` to signed-out visitors, with a "Celebrate the wins" confetti section and waitlist or sign-up button), sign-in, sign-up, confirm email, forgot/reset password, terms, privacy.
+Landing page (`/welcome`, shown at `/` to signed-out visitors). It leads with a worked example of one sale (sold for, fees, postage, what I paid, "You keep"), then the purchase-to-payout journey using the real status pills, three feature blocks drawn as pictures of the real screens (several platforms with a price each, the To send list, Reports), a short "small things" grid, the goal confetti, a short note on why it was built, the price and trial, and a five-question FAQ. The price and trial length are read from `priceLabel()` and `trialDays()` (so `PRICE_PENCE` and `TRIAL_DAYS` change the page too), and the join box is the waitlist form or a sign-up button depending on `signupsOpen()`. Sign-in, sign-up, confirm email, forgot/reset password, terms, privacy.
 
 ---
 
@@ -153,7 +153,7 @@ src/
       upload/route.ts          photo upload to Blob
     login/ signup/ verify/ forgot-password/ reset-password/
     change-password/ change-email/ confirm-email-change/ setup/
-    welcome/ (landing)  terms/  privacy/  manifest.ts  icons
+    welcome/ (landing: page.tsx, Mocks.tsx pictures of the real screens, GoalShowcase, WaitlistForm)  terms/  privacy/  manifest.ts  icons
   components/                  shared UI (forms, charts, banner, pickers, PlatformPicker, SellFields, Loading placeholders, TimingReadout, …)
   db/  schema.ts index.ts      Drizzle schema and pooled connection
   lib/
@@ -419,7 +419,7 @@ npm run dev
 - `tests/platform-reports.test.ts`: the platform and handover reports with hand-checkable numbers (profit, sold, average days, sell-through with a relisted item counted once, sales with no platform shown as "Not set", platform profits adding up to the sales profit, empty periods, another account's sales never appearing).
 - `tests/fees.test.ts`: profit after fees and postage in the reports (revenue, fees, margin, return on cost, average profit, best/worst), a fee landing in the month of the sale rather than a later return, the report agreeing with each item's own profit, another account's fees never leaking, and migration `0008` leaving old items unchanged with 0 fees. `tests/helpers.test.ts` also covers `itemProfit()` with fees, returns and penny rounding, and `parseOptionalMoney()`.
 - `tests/backfill.test.ts`: migration `0007` applied to old-style items (bought, listed, completed, returned, unsold, direct sale) leaves every old column unchanged and fills the new tables correctly.
-- `tests/e2e/journey.ts`: in a phone-sized browser: sign in, wrong password refused, add an item, list it on one platform then add a second, sell it on the second (listings end, platform and handover saved), a collected item that only completes once handed over, set a platform's fee %, sell with the fee pre-filled and postage paid, see the profit after both, see it in reports and the CSV, Settings → Platforms & postage, Settings → Account, another account can't open the item (shows "not found" and nothing of the item), an expired trial is read-only (can view and export, can't add), signed-out visitors are sent to sign in.
+- `tests/e2e/journey.ts`: in a phone-sized browser: sign in, wrong password refused, add an item, list it on one platform then add a second, sell it on the second (listings end, platform and handover saved), a collected item that only completes once handed over, set a platform's fee %, sell with the fee pre-filled and postage paid, see the profit after both, see it in reports and the CSV, Settings → Platforms & postage, Settings → Account, another account can't open the item (shows "not found" and nothing of the item), an expired trial is read-only (can view and export, can't add), signed-out visitors are sent to sign in, and the landing page shows the headline, the price and trial length and five questions that open when tapped, with a working Sign in link.
 
 **Not covered yet** (checked by hand in Stripe sandbox instead): the Stripe webhook and checkout paths, the email flows (confirm, reset, change email), the admin pages, and the daily trial-reminder cron.
 
@@ -441,6 +441,7 @@ Without `TEST_DATABASE_URL` the database tests are **skipped with a message**, n
 ## 14. Working notes and gotchas
 
 - **This is a newer Next.js than most docs describe.** `AGENTS.md` tells coding agents to read `node_modules/next/dist/docs/` before writing code. Notable differences already hit: `proxy.ts` replaces `middleware.ts`; `params` and `searchParams` are Promises; route handlers that read headers are dynamic.
+- **Landing page copy must stay true.** The pictures in `src/app/welcome/Mocks.tsx` use made-up example figures (labelled "Example") and never read the database. The FAQ promises no marketplace connection, no tax advice and read-only (not deleted) accounts after a lapse; change those answers if the app changes. The "Built by one person" note mentions the owner's wife; the owner can edit or remove it in `page.tsx`.
 - **Server Actions body limit** is 6 MB (`next.config.ts`); photos are resized in the browser first (about 4 MB cap in the upload route).
 - **Migrations ship with certain functions** (`outputFileTracingIncludes` for `/setup` and `/settings`) so the manual buttons can run them.
 - **Inputs must stay at 16px** (set globally in `globals.css`) and the viewport sets `maximum-scale=1`, otherwise iPhones zoom in when a field is focused. Pinch-zoom is blocked on Android as a result.
@@ -483,6 +484,7 @@ Without `TEST_DATABASE_URL` the database tests are **skipped with a message**, n
 | #31 | "To send" worklist: chips wrap to two rows, a To send view groups waiting parcels by postal service plus Collection and Delivery, one-tap Mark as posted / handed over with Undo, the Home tile opens it. No migration |
 | #32 | Items page: greyed-out loading placeholders with a spinning gem on every page, "Show more" (50 at a time with a "Showing X of N" count, replacing the hidden 200-item limit), and an admin-only `?timing=1` readout. Pages now stream, so a missing item shows "not found" with status 200. No migration |
 | Region fix | Vercel function region changed from Washington DC to London (`lhr1`) in the Vercel settings after the timing readout showed about 90ms per database query; now 11 to 18ms. README only |
+| #34 | Landing page redesign: leads with a worked sale, shows the real journey and screens, states the price and trial length (read from the billing settings), adds a FAQ and a short founder note. Copy only says what the app does (no marketplace connection, not tax advice). No migration |
 | Launch prep | Domain `hiddengemsapp.co.uk`, `APP_URL`, webhook moved to the new domain; preview builds switched off; database password rotated |
 
 ---
