@@ -69,7 +69,7 @@ export default async function HomePage() {
       <div className="grid grid-cols-2 gap-3">
         {tile("To list", toList, "/items?f=bought", toList > 0)}
         {tile("Listed now", listed, "/items?f=listed")}
-        {tile("To send", toPost, "/items?f=sold", toPost > 0)}
+        {tile("To send", toPost, "/items?f=send", toPost > 0)}
         {tile("Stock value (at cost)", money(stockValue), "/items?f=stock")}
       </div>
 

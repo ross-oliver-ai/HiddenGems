@@ -274,6 +274,21 @@ export async function markHandedOver(userId: number, itemId: number, when: strin
   return { ok: true };
 }
 
+/**
+ * Puts a parcel that was just ticked off back to "sold, to send" (the Undo after "Mark as posted" / "Mark as handed over").
+ * Only undoes the step that matches how the item is sent, so it can't turn an ordinary completed sale back by accident.
+ */
+export async function undoSend(userId: number, itemId: number): Promise<Result> {
+  const item = await loadItem(db, userId, itemId);
+  if (!item) return fail("Item not found.");
+  const inPerson = item.handover === "collected" || item.handover === "delivered";
+  const wasPosted = item.status === "posted" && !inPerson;
+  const wasHandedOver = item.status === "completed" && inPerson;
+  if (!wasPosted && !wasHandedOver) return fail("That can't be undone any more.");
+  await db.update(items).set({ status: "sold", postedAt: null, updatedAt: new Date() }).where(eq(items.id, itemId));
+  return { ok: true };
+}
+
 // ---------- Editing details ----------
 
 export type ListingEdit = { listingId: number; price: string | null; url: string | null; listedAt: string | null };

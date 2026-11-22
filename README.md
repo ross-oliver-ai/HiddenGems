@@ -56,7 +56,8 @@ A mobile-first web app for resellers: record what you buy, list, sell and post, 
 ## 2. What the app does
 
 ### For sellers
-- **Items.** Each item records name, brand, size, condition, notes, photo, category, where it was bought, buy price and date. Search as you type (name, brand, shop) and filter chips: All, In stock, To list, Listed, Sold, Returned/unsold. List cards show small platform tags (where it is live, or where it sold).
+- **Items.** Each item records name, brand, size, condition, notes, photo, category, where it was bought, buy price and date. Search as you type (name, brand, shop) and filter chips (wrapped onto two rows so none are hidden off-screen): All, In stock, To list, Listed, To send, Sold, Returned/unsold. List cards show small platform tags (where it is live, or where it sold).
+- **To send.** The "To send" chip (and the Home "To send" tile, which opens it directly) shows everything sold but not yet posted or handed over as a worklist grouped by how it goes: one group per postal service the seller has set up (A to Z, hidden services still appear while parcels wait), then No service chosen, Collection, Delivery and No method set. Empty groups are hidden; the longest-waiting sale is first. Each row shows the photo, name, the platform it sold on and how long ago it sold, with one-tap **Mark as posted** (postal) or **Mark as handed over** (collection and delivery), using today's date (change it from the item page if needed). A "marked as posted · Undo" bar stays for 10 seconds after a tick and puts the item back to "sold, to send". Search works inside it. Uses the same step rules as the item page; no database change.
 - **Lifecycle** (see the diagram in [Data model](#5-data-model)). Bought → Listed → Sold → Posted → Completed, plus Returned (with refund amount), Unsold and Donated. Each step asks only for what it needs and validates (for example, you can't list before you bought).
 - **Selling on several platforms.** Each seller has a list of platforms (defaults Vinted, eBay, Depop, Facebook Marketplace, Gumtree). Listing an item means choosing one or more platforms, each with its own price (a new platform starts at the first platform's price; change it only if different) and an optional link. "Also list on…" adds platforms later; "Take off X" ends one listing; "Take off everywhere" puts it back to to-list. Price reductions are per platform and kept as history.
 - **Selling and handover.** The sell step records **Sold on** (the platform) and how it got to the buyer: **By post** (with a postage service), **Collected by buyer** or **I delivered it**. Posted items go Sold → Posted → Completed as before. Collected and delivered items skip the "posted" step: an "Already handed over" tick (on by default) completes the sale straight away; unticked, the item stays "Sold, to send" with a "Mark as handed over" button. Selling ends the listing on every other platform.
@@ -155,7 +156,8 @@ src/
     auth.ts session.ts password.ts   sessions, guards, hashing
     billing.ts stripe.ts             entitlement logic, Stripe client + webhook handling
     email.ts authEmails.ts trialEmails.ts emailChange.ts tokens.ts
-    listings.ts listing-labels.ts    platforms, listings, selling and handover logic (all DB rules live here; tests cover it)
+    listings.ts listing-labels.ts    platforms, listings, selling, handover and undo logic (all DB rules live here; tests cover it)
+    to-send.ts send-groups.ts        the To send worklist: the query, and the grouping (pure, no database)
     items.ts reports.ts periods.ts queries.ts format.ts defaults.ts themes.ts migrations.ts
 scripts/  build-migrate.ts migrate.ts seed-admin.ts
 tests/    *.test.ts (unit + database tests), e2e/journey.ts (browser), helpers/testdb.ts
@@ -216,7 +218,7 @@ stateDiagram-v2
   unsold --> bought: reopen
   donated --> bought: reopen
 ```
-Transitions are enforced in `src/app/(app)/items/lifecycle.ts` (a table of which statuses each step may start from); the listing, selling and handover rules themselves are in `src/lib/listings.ts`. "Handing over" only applies to collected or delivered sales; "post" only to posted ones. Relisting a returned item clears the sale, including the sold platform and handover.
+Transitions are enforced in `src/app/(app)/items/lifecycle.ts` (a table of which statuses each step may start from); the listing, selling and handover rules themselves are in `src/lib/listings.ts`. "Handing over" only applies to collected or delivered sales; "post" only to posted ones. Relisting a returned item clears the sale, including the sold platform and handover. `undosend` (the Undo on the To send list) puts a just-posted parcel, or a just-handed-over collection or delivery, back to "sold"; it refuses a completed postal sale and anything else that isn't that exact step.
 
 ### Migrations
 Drizzle migrations live in `drizzle/` and are **additive only**, so rolling the code back never breaks the data.
@@ -404,6 +406,7 @@ npm run dev
 - `tests/reports.test.ts`: the report maths (spent, revenue, cost, write-offs, profit, margin, ROI, days to sell, sell-through, rankings, stock, goal) against a known set of items in a real database, including refunds, write-offs, items outside the period, and another account's items never leaking in.
 - `tests/migrations.test.ts`: every migration applies in order to an empty database, with the expected tables, defaults, enum values and cascade deletes.
 - `tests/listings.test.ts`: listing on several platforms, per-platform prices and reductions, taking listings off, selling (platform, handover, ends other listings, completes only once handed over), relisting, editing listings, and another account's data never being touched.
+- `tests/to-send.test.ts`: the To send grouping (groups follow the services the seller has, A to Z; fixed groups after; empty groups hidden; longest-waiting first; every item in exactly one group), which items appear (only sold ones, never another account's, hidden services still shown, search), and Undo (posted and handed-over steps only, never a completed postal sale, never another account's item).
 - `tests/platform-reports.test.ts`: the platform and handover reports with hand-checkable numbers (profit, sold, average days, sell-through with a relisted item counted once, sales with no platform shown as "Not set", platform profits adding up to the sales profit, empty periods, another account's sales never appearing).
 - `tests/fees.test.ts`: profit after fees and postage in the reports (revenue, fees, margin, return on cost, average profit, best/worst), a fee landing in the month of the sale rather than a later return, the report agreeing with each item's own profit, another account's fees never leaking, and migration `0008` leaving old items unchanged with 0 fees. `tests/helpers.test.ts` also covers `itemProfit()` with fees, returns and penny rounding, and `parseOptionalMoney()`.
 - `tests/backfill.test.ts`: migration `0007` applied to old-style items (bought, listed, completed, returned, unsold, direct sale) leaves every old column unchanged and fills the new tables correctly.
@@ -422,7 +425,7 @@ npm run test:e2e         # resets the test database, then drives the app on :310
 ```
 Without `TEST_DATABASE_URL` the database tests are **skipped with a message**, not silently passed. The helper refuses to run if the database name doesn't contain `test`.
 
-**Keeping tests honest.** A test that can't fail is worthless, so when adding one, break the code on purpose once to see it fail. (This was done for the first set: ignoring refunds, leaking another account's data, a longer grace period, a trial ending a day late and wrong profit maths were each caught; and for the listing logic: a sale not ending listings, the sold platform not being stored, and relist keeping the old sold platform; and for the platform reports: platform profit ignoring fees, sell-through counting a sale elsewhere, listings outside the period counted, wrong average days, handover profit ignoring fees, and a missing platform dropped instead of shown as "Not set"; and for fees: ignoring postage paid, ignoring fees on a returned item, reports or margin ignoring fees, a sale not storing its fees, and relist keeping them.)
+**Keeping tests honest.** A test that can't fail is worthless, so when adding one, break the code on purpose once to see it fail. (This was done for the first set: ignoring refunds, leaking another account's data, a longer grace period, a trial ending a day late and wrong profit maths were each caught; and for the listing logic: a sale not ending listings, the sold platform not being stored, and relist keeping the old sold platform; and for To send: newest-first ordering, collection landing in the wrong group, posted items leaking in, another account's items leaking, undo allowed on a completed postal sale, and empty groups showing; and for the platform reports: platform profit ignoring fees, sell-through counting a sale elsewhere, listings outside the period counted, wrong average days, handover profit ignoring fees, and a missing platform dropped instead of shown as "Not set"; and for fees: ignoring postage paid, ignoring fees on a returned item, reports or margin ignoring fees, a sale not storing its fees, and relist keeping them.)
 
 ---
 
@@ -466,6 +469,7 @@ Without `TEST_DATABASE_URL` the database tests are **skipped with a message**, n
 | #28 | Fees and postage paid: per-platform fee % (default 0), editable fee and "postage I paid" on each sale, profit and reports after both, CSV columns; migration `0008` (all existing rows get 0) |
 | #29 | Reports by selling platform (profit, sold, average days to sell, sell-through) and by handover method; CSV "Sold on" and "How it got there" columns. No migration |
 | #30 | The handover chart shows profit (with the number sold beside each bar) instead of only the count, because its subtitle promised profit. No migration |
+| #31 | "To send" worklist: chips wrap to two rows, a To send view groups waiting parcels by postal service plus Collection and Delivery, one-tap Mark as posted / handed over with Undo, the Home tile opens it. No migration |
 | Launch prep | Domain `hiddengemsapp.co.uk`, `APP_URL`, webhook moved to the new domain; preview builds switched off; database password rotated |
 
 ---
