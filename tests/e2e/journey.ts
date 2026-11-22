@@ -158,9 +158,12 @@ async function main() {
     await page.goto(`${BASE}/reports?p=all`);
     const rep = await body(page);
     check("reports add up both sales after fees (revenue £25.00, profit £15.50)", rep.includes("£25.00") && rep.includes("£15.50") && rep.includes("£3.50 fees and postage"), rep.slice(0, 300));
+    // The second item was pre-set to the platforms used last time (Vinted and eBay), so each platform listed 2 items and sold 1
+    check("reports show the selling platforms with their sell-through (each 1 of 2)", rep.includes("Selling platforms") && (rep.match(/50% \(1\/2\)/g) ?? []).length === 2, rep.slice(0, 600));
+    check("reports show how items got to the buyer", rep.includes("How items got to the buyer"));
     const csv = await ctx.request.get(`${BASE}/reports/export`);
     const csvText = await csv.text();
-    check("the CSV export includes the item and the fee columns", csv.status() === 200 && csvText.includes("Journey boots") && csvText.includes("Fees,Postage paid,Profit"));
+    check("the CSV export includes the item and the fee columns", csv.status() === 200 && csvText.includes("Journey boots") && csvText.includes("Fees,Postage paid,Profit") && csvText.includes("Sold on,How it got there"));
 
     // settings pages open
     await page.goto(`${BASE}/settings`);

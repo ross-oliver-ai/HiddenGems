@@ -238,6 +238,50 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       </ChartCard>
 
       <ChartCard
+        title="Selling platforms"
+        subtitle="Sales only, profit after fees and postage. Days are from first listing to sale."
+      >
+        {r.byPlatform.length === 0 ? (
+          <Empty>No sales yet.</Empty>
+        ) : (
+          <>
+            <RankedBars rows={r.byPlatform.map((x) => ({ name: x.name, value: x.profit, items: x.sold }))} kind="money" label="Profit by selling platform" />
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="text-muted">
+                    <th className="py-1 pr-3 font-bold">Platform</th>
+                    <th className="py-1 pr-3 text-right font-bold">Sold</th>
+                    <th className="py-1 pr-3 text-right font-bold">Avg days</th>
+                    <th className="py-1 text-right font-bold">Sell-through</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {r.byPlatform.map((x) => (
+                    <tr key={x.name} className="border-t border-border">
+                      <td className="py-1.5 pr-3 font-semibold">{x.name}</td>
+                      <td className="py-1.5 pr-3 text-right">{x.sold}</td>
+                      <td className="py-1.5 pr-3 text-right">{x.avgDays === null ? "–" : x.avgDays}</td>
+                      <td className="py-1.5 text-right">{x.sellThrough ? `${Math.round((x.sellThrough.sold / x.sellThrough.of) * 100)}% (${x.sellThrough.sold}/${x.sellThrough.of})` : "–"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-muted">Sell-through: of the items listed on that platform in this period, how many sold there.</p>
+          </>
+        )}
+      </ChartCard>
+
+      <ChartCard
+        title="How items got to the buyer"
+        subtitle="Items sold, with the profit they made"
+        table={{ head: ["Method", "Sold", "Profit"], rows: r.byHandover.map((x) => [x.name, x.sold, signed(x.profit)]) }}
+      >
+        {r.byHandover.length === 0 ? <Empty>No sales yet.</Empty> : <RankedBars rows={r.byHandover.map((x) => ({ name: x.name, value: x.sold, items: x.sold }))} kind="count" label="Items sold by handover method" />}
+      </ChartCard>
+
+      <ChartCard
         title="Postage used"
         subtitle="Items sent by each service"
         table={{ head: ["Service", "Items"], rows: r.byPostal.map((x) => [x.name, x.value]) }}
