@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Hidden Gems: the profit tracker for people who resell",
   description:
-    "Follow every find from the charity shop to the payout and see what you actually keep after fees, postage and refunds. Built for UK Vinted, eBay and Depop sellers.",
+    "Follow every find from the day you buy it to the payout and see what you actually keep after fees, postage and refunds. Built for UK Vinted, eBay and Depop sellers.",
   openGraph: {
     title: "Hidden Gems: know what you actually keep from every sale",
     description: "Track what you buy and sell, and see your real profit after fees, postage and refunds.",
@@ -33,7 +33,7 @@ const MORE = [
   { title: "Returns that stay honest", text: "Sold, then sent back? Record the refund and your profit and reports follow." },
   { title: "Stock that doesn't go stale", text: "A nudge when something has sat unsold for longer than you'd like. You choose how long." },
   { title: "Your UK tax year", text: "Reports for a week, month, quarter, the UK tax year or any dates you pick." },
-  { title: "Where it came from", text: "Charity shop, car boot, online lot. See which places give you the best profit." },
+  { title: "Where it came from", text: "Charity shop, car boot, online auction, your own wardrobe. See which places give you the best profit." },
   { title: "Your data stays yours", text: "Download everything as a CSV whenever you like, even if you stop paying." },
   { title: "Made for a phone", text: "Big buttons, quick photos, dark mode and six colours. Add it to your home screen, no app store." },
 ];
@@ -95,7 +95,7 @@ export default function WelcomePage() {
               Know what you <span className="text-primary">actually keep</span> from every sale.
             </h1>
             <p className="text-lg text-muted">
-              Follow each find from the charity shop to the payout. Hidden Gems works out your real profit after fees, postage and refunds, for sellers on Vinted, eBay, Depop and more.
+              Follow each find from the day you buy it to the payout. Hidden Gems works out your real profit after fees, postage and refunds, for sellers on Vinted, eBay, Depop and more.
             </p>
             <div className="card mx-auto max-w-md space-y-3 text-left md:mx-0">
               <JoinBox id="join-top" open={open} />
@@ -108,7 +108,7 @@ export default function WelcomePage() {
         <section className="mx-auto max-w-2xl space-y-3 py-10 text-center" aria-labelledby="problem">
           <h2 id="problem" className="text-2xl font-extrabold tracking-tight md:text-3xl">Your sales total isn&apos;t your profit</h2>
           <p className="text-lg text-muted">
-            Between the price you charge and the money you keep sit what you paid, the platform&apos;s fee, the postage, and the odd return. Hidden Gems does that sum on every item, so you don&apos;t have to.
+            Your sales total is what buyers paid. Your profit is what&apos;s left after you take off what you paid for the item, the platform&apos;s fee, the postage and any refund. Hidden Gems works that out for every item, so you don&apos;t have to.
           </p>
         </section>
 
@@ -180,7 +180,7 @@ export default function WelcomePage() {
         <section className="mx-auto max-w-2xl space-y-3 py-10 text-center" aria-labelledby="why">
           <h2 id="why" className="text-2xl font-extrabold tracking-tight md:text-3xl">Built by one person, for sellers like this</h2>
           <p className="text-lg text-muted">
-            Hidden Gems started as a tracker I made for my wife, who sells charity-shop finds on Vinted. It&apos;s now open to other sellers.
+            Hidden Gems started as a tracker I made for my wife, who resells on Vinted. It&apos;s now open to other sellers.
           </p>
         </section>
 
