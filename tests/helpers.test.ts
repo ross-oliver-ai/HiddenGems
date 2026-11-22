@@ -2,7 +2,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { itemProfit, isStale } from "@/lib/items";
-import { parseMoney, parseOptionalMoney, daysBetween, money } from "@/lib/format";
+import { parseMoney, parseOptionalMoney, daysBetween, money, percent } from "@/lib/format";
 import { prorateGoal, resolvePeriod, bucketKey, listBuckets, addDays } from "@/lib/periods";
 
 describe("itemProfit()", () => {
@@ -68,6 +68,21 @@ describe("parseMoney()", () => {
   it("formats money as pounds", () => {
     assert.equal(money("12.5"), "£12.50");
     assert.equal(money(null), "–");
+  });
+});
+
+describe("percent()", () => {
+  it("shows whole numbers, rounding to the nearest", () => {
+    assert.equal(percent(60.81), "61%");
+    assert.equal(percent(219.33), "219%");
+    assert.equal(percent(62.5), "63%");
+    assert.equal(percent(0), "0%");
+    assert.equal(percent(-12.4), "-12%");
+  });
+  it("shows a dash when there is nothing to show", () => {
+    assert.equal(percent(null), "–");
+    assert.equal(percent(undefined), "–");
+    assert.equal(percent(Number.NaN), "–");
   });
 });
 
