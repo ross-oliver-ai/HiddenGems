@@ -2,12 +2,15 @@ import { del } from "@vercel/blob";
 import { and, eq, isNotNull } from "drizzle-orm";
 import { db } from "@/db";
 import { items, loginAttempts, users, waitlist, type User } from "@/db/schema";
+import { recordError } from "./alerts";
 import { stripeConfigured } from "./billing";
 import { cancelSubscription } from "./stripe";
 
 export type DeleteDeps = {
   cancelSubscription: (id: string) => Promise<void>;
   removePhotos: (urls: string[]) => Promise<void>;
+  /** Tells the owner a deletion failed (a customer is waiting on this). Optional so tests can leave it out. */
+  report?: (what: string, error: unknown) => Promise<void>;
 };
 
 /** Photos live in Vercel Blob. Nothing to remove when Blob isn't set up (local development). */
@@ -16,7 +19,11 @@ async function removePhotos(urls: string[]): Promise<void> {
   for (let i = 0; i < urls.length; i += 100) await del(urls.slice(i, i + 100));
 }
 
-export const realDeps: DeleteDeps = { cancelSubscription, removePhotos };
+export const realDeps: DeleteDeps = {
+  cancelSubscription,
+  removePhotos,
+  report: (what, error) => recordError({ source: `Account deletion (${what})`, error, route: "/settings/account/delete" }),
+};
 
 export type DeleteResult = { ok: true } | { ok: false; error: string };
 
@@ -31,7 +38,8 @@ export async function deleteAccount(user: User, deps: DeleteDeps = realDeps): Pr
   if (user.stripeSubscriptionId && user.subscriptionStatus !== "canceled" && stripeConfigured()) {
     try {
       await deps.cancelSubscription(user.stripeSubscriptionId);
-    } catch {
+    } catch (e) {
+      await deps.report?.("cancelling the subscription", e);
       return { ok: false, error: "We couldn't cancel your subscription, so nothing has been deleted. Please try again in a minute, or email us." };
     }
   }
@@ -40,7 +48,8 @@ export async function deleteAccount(user: User, deps: DeleteDeps = realDeps): Pr
   if (photos.length) {
     try {
       await deps.removePhotos(photos);
-    } catch {
+    } catch (e) {
+      await deps.report?.("removing photos", e);
       return { ok: false, error: "We couldn't remove your photos, so nothing has been deleted. Please try again in a minute, or email us." };
     }
   }

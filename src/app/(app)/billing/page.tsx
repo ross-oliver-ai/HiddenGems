@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { recordError } from "@/lib/alerts";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
@@ -25,6 +26,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
       }
     } catch (e) {
       console.error("Couldn't confirm checkout", e);
+      await recordError({ source: "Checkout confirmation", error: e, route: "/billing" });
     }
     redirect("/billing?subscribed=1"); // so refreshing the page doesn't repeat this
   }

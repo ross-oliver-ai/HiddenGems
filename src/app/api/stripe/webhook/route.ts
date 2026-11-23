@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { recordError } from "@/lib/alerts";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { stripeEvents } from "@/db/schema";
@@ -30,6 +31,7 @@ export async function POST(request: Request) {
     await handleStripeEvent(event);
   } catch (e) {
     console.error("Stripe webhook failed", event.type, e);
+    await recordError({ source: "Stripe webhook", error: e, route: `/api/stripe/webhook (${event.type})` });
     return NextResponse.json({ error: "Failed" }, { status: 500 }); // Stripe will try again later
   }
   await db.insert(stripeEvents).values({ id: event.id, type: event.type }).onConflictDoNothing();

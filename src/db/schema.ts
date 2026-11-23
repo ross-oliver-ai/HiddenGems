@@ -282,3 +282,25 @@ export const loginAttempts = pgTable(
   },
   (t) => [index("login_attempts_email_idx").on(t.email, t.createdAt), index("login_attempts_ip_idx").on(t.ip, t.createdAt), index("login_attempts_created_idx").on(t.createdAt)],
 );
+
+/**
+ * Things that went wrong on the server, one row per distinct problem (same place, same kind of error), so the admin can be told
+ * once rather than once per customer. Only a scrubbed summary is stored: no stack traces, query values, emails or tokens.
+ * Rows are purged after 30 days without the problem recurring.
+ */
+export const errorAlerts = pgTable(
+  "error_alerts",
+  {
+    signature: text("signature").primaryKey(), // source + place + kind of error, with numbers and ids flattened
+    source: text("source").notNull(), // e.g. "render", "action", "route", "Stripe webhook"
+    route: text("route"), // the page or route pattern, without query strings
+    message: text("message").notNull(), // scrubbed and shortened
+    digest: text("digest"), // Next.js's short id, to find the full log line in Vercel
+    count: integer("count").notNull().default(1),
+    isTest: boolean("is_test").notNull().default(false),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    lastEmailedAt: timestamp("last_emailed_at", { withTimezone: true }), // null: never emailed (or held back by the daily cap)
+  },
+  (t) => [index("error_alerts_last_seen_idx").on(t.lastSeenAt)],
+);
