@@ -40,7 +40,7 @@ export async function GET() {
   }
 
   const head = [
-    "Item", "Status", "Brand", "Size", "Condition", "Category", "Charity shop", "Date bought", "Paid",
+    "Item", "Status", "Brand", "Size", "Condition", "Category", "Where from", "Date bought", "Paid",
     "Date listed", "Asking price", "Date sold", "Sold for", "Sold on", "How it got there", "Postage service", "Date posted",
     "Date returned", "Refund", "Fees", "Postage paid", "Profit", "Notes", "Listing link",
   ];

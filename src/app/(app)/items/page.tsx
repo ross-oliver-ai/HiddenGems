@@ -109,7 +109,7 @@ export default async function ItemsPage({ searchParams }: { searchParams: Promis
                       <p className="truncate font-extrabold">{item.name}</p>
                       <StatusPill status={item.status} />
                     </div>
-                    <p className="truncate text-sm text-muted">{[shop, category].filter(Boolean).join(" · ") || "No shop"}</p>
+                    <p className="truncate text-sm text-muted">{[shop, category].filter(Boolean).join(" · ") || "No place set"}</p>
                     {tags.length > 0 && (
                       <p className="mt-0.5 flex flex-wrap gap-1">
                         {tags.map((t) => <span key={t} className="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-bold text-muted">{t}</span>)}

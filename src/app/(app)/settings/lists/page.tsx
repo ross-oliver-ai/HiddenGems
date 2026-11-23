@@ -17,7 +17,7 @@ export default async function ListsPage() {
         <Link href="/settings" className="text-sm font-bold text-primary">← Settings</Link>
         <h1 className="mt-1 text-2xl font-extrabold tracking-tight">Shops & categories</h1>
       </div>
-      <ListManager kind="shops" title="Charity shops" hint="New shops are also added automatically when you type one on an item." entries={s} />
+      <ListManager kind="shops" title="Where from" hint="Where you find things: a charity shop, a car boot, an online auction, your own wardrobe. New places are also added automatically when you type one on an item." entries={s} />
       <ListManager kind="categories" title="Categories" hint="Used to group your reports." entries={c} />
     </div>
   );
