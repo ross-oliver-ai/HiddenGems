@@ -105,8 +105,10 @@ describe("full download and account deletion (database)", { skip: dbSkipReason }
   it("if Stripe can't cancel, nothing is deleted and the person is told", async () => {
     process.env.STRIPE_SECRET_KEY = "sk_test_x"; process.env.STRIPE_WEBHOOK_SECRET = "whsec_x";
     const u = await seller("stripefail@example.com", { stripeSubscriptionId: "sub_f", subscriptionStatus: "active" });
-    const r = await del.deleteAccount(u, { cancelSubscription: async () => { throw new Error("down"); }, removePhotos: async () => {} });
+    const reported: string[] = [];
+    const r = await del.deleteAccount(u, { cancelSubscription: async () => { throw new Error("down"); }, removePhotos: async () => {}, report: async (what) => { reported.push(what); } });
     assert.equal(r.ok, false);
+    assert.equal(reported.length, 1, "the failure is reported to the owner");
     assert.match(r.ok ? "" : r.error, /nothing has been deleted/);
     assert.equal(Number((await dbm.pool.query("select count(*) n from users where id=$1", [u.id])).rows[0].n), 1);
     assert.equal(Number((await dbm.pool.query("select count(*) n from items where user_id=$1", [u.id])).rows[0].n), 1);
@@ -114,8 +116,10 @@ describe("full download and account deletion (database)", { skip: dbSkipReason }
 
   it("if the photos can't be removed, nothing is deleted and the person can try again", async () => {
     const u = await seller("photofail@example.com");
-    const r = await del.deleteAccount(u, { cancelSubscription: async () => {}, removePhotos: async () => { throw new Error("blob down"); } });
+    const reported: string[] = [];
+    const r = await del.deleteAccount(u, { cancelSubscription: async () => {}, removePhotos: async () => { throw new Error("blob down"); }, report: async (what) => { reported.push(what); } });
     assert.equal(r.ok, false);
+    assert.equal(reported.length, 1, "the failure is reported to the owner");
     assert.match(r.ok ? "" : r.error, /nothing has been deleted/);
     assert.equal(Number((await dbm.pool.query("select count(*) n from users where id=$1", [u.id])).rows[0].n), 1);
     const again = await del.deleteAccount(u, { cancelSubscription: async () => {}, removePhotos: async () => {} });
