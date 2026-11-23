@@ -304,3 +304,18 @@ export const errorAlerts = pgTable(
   },
   (t) => [index("error_alerts_last_seen_idx").on(t.lastSeenAt)],
 );
+
+/**
+ * One row per scheduled job (today only "daily": the trial-reminder job), updated every time it runs, so the admin
+ * Overview can show whether it is really running. Vercel's own logs only keep an hour on the free plan.
+ */
+export const jobRuns = pgTable("job_runs", {
+  job: text("job").primaryKey(),
+  lastRunAt: timestamp("last_run_at", { withTimezone: true }).notNull(),
+  ok: boolean("ok").notNull(),
+  checked: integer("checked").notNull().default(0), // accounts looked at for a reminder
+  sent: integer("sent").notNull().default(0), // reminder emails sent
+  skipped: boolean("skipped").notNull().default(false), // true when billing is off, so reminders weren't due
+  error: text("error"), // scrubbed message when ok is false
+  runCount: integer("run_count").notNull().default(1),
+});

@@ -62,6 +62,7 @@ jobs:
           STRIPE_SECRET_KEY: sk_test_ci_only
           STRIPE_WEBHOOK_SECRET: whsec_ci_only
           E2E_BOOM: "1"
+          CRON_SECRET: x # the browser run calls the daily job with this (its default)
           RESEND_API_KEY: test
           EMAIL_FROM: test@example.com
       - name: Core journey in a real browser (add, list, sell, reports, lock)
