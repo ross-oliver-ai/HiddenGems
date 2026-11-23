@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SUPPORT_EMAIL } from "@/lib/contact";
 
 export const metadata: Metadata = { title: "Privacy notice · Hidden Gems" };
 
@@ -47,7 +48,7 @@ export default function PrivacyPage() {
       <section className="space-y-2">
         <h2 className="text-lg font-extrabold">Your rights</h2>
         <p>
-          You can ask to see, correct or delete your email at any time by replying to any email we send you. If you&apos;re unhappy with how we&apos;ve
+          You can ask to see, correct or delete your email at any time by emailing {SUPPORT_EMAIL} or replying to any email we send you. If you&apos;re unhappy with how we&apos;ve
           handled it, you can complain to the Information Commissioner&apos;s Office (ico.org.uk).
         </p>
       </section>
