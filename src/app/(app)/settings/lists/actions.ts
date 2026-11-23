@@ -1,5 +1,6 @@
 "use server";
 
+import { markFeesReviewed } from "@/lib/checklist";
 import { revalidatePath } from "next/cache";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
@@ -95,6 +96,7 @@ export async function updateFeesAction(_prev: ListState & { ok?: boolean }, form
   await db.transaction(async (tx) => {
     for (const u of updates) await tx.update(platforms).set({ feePercent: u.fee }).where(and(eq(platforms.id, u.id), eq(platforms.userId, user.id)));
   });
+  await markFeesReviewed(user.id);
   revalidateSettingsLists();
   return { ok: true };
 }

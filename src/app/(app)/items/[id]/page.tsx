@@ -43,9 +43,9 @@ function PriceField({ label, defaultValue, id = "price", name = "price", optiona
   );
 }
 
-function Step({ title, children, open }: { title: string; children: React.ReactNode; open?: boolean }) {
+function Step({ title, children, open, tour }: { title: string; children: React.ReactNode; open?: boolean; tour?: string }) {
   return (
-    <details open={open} className="card">
+    <details open={open} className="card" data-tour={tour}>
       <summary className="cursor-pointer list-none font-extrabold">{title}</summary>
       <div className="mt-3">{children}</div>
     </details>
@@ -163,7 +163,7 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
 
       {/* What's next */}
       {s === "bought" && (
-        <Step title="List it" open>
+        <Step title="List it" open tour="list-step">
           <StepForm itemId={id} intent="list" label="Mark as listed">
             <DateField label="Date listed" />
             <PlatformPicker platforms={platformRows} initialSelected={startWith} />
@@ -173,7 +173,7 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
 
       {s === "listed" && (
         <>
-          <Step title="It sold! 🎉" open>
+          <Step title="It sold! 🎉" open tour="sell-step">
             <StepForm itemId={id} intent="sell" label="Mark as sold">
               <DateField label="Date sold" />
               <SellFields

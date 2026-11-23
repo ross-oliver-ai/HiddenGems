@@ -143,3 +143,16 @@ input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 0; }
 .recharts-surface:focus {
   outline: none;
 }
+
+/* First-run spotlight: a soft ring that pulses around the thing to look at. It never blocks taps. */
+@keyframes spotlight-pulse {
+  0%, 100% { outline-color: color-mix(in srgb, var(--primary) 90%, transparent); outline-offset: 2px; }
+  50% { outline-color: color-mix(in srgb, var(--primary) 30%, transparent); outline-offset: 7px; }
+}
+.spotlight-ring {
+  outline: 3px solid var(--primary);
+  animation: spotlight-pulse 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .spotlight-ring { animation: none; }
+}

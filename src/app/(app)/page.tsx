@@ -6,6 +6,9 @@ import { items } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { daysBetween, money, todayLondon } from "@/lib/format";
 import { computeReport } from "@/lib/reports";
+import { Checklist } from "@/components/Checklist";
+import { checklistAvailable, checklistFacts } from "@/lib/checklist";
+import { checklistDone, checklistSteps } from "@/lib/checklist-steps";
 
 export default async function HomePage() {
   const user = await requireUser();
@@ -35,6 +38,10 @@ export default async function HomePage() {
   const goal = user.monthlyProfitGoal !== null ? (await computeReport(user, { p: "month" })).goal : null;
   const goalPct = goal && goal.target > 0 ? Math.max(0, Math.min(100, Math.round((goal.current / goal.target) * 100))) : 0;
   const goalMet = !!goal && goal.target > 0 && goal.current >= goal.target;
+
+  // The first-run checklist: new accounts only, until they hide it or finish it
+  const steps = checklistAvailable(user) ? checklistSteps(await checklistFacts(user)) : null;
+  const showChecklist = !!steps && !checklistDone(steps);
 
   const tile = (label: string, value: React.ReactNode, href: string, accent = false) => (
     <Link href={href} className={`card active:scale-[0.98] ${accent ? "bg-primary-soft" : ""}`}>
@@ -67,6 +74,8 @@ export default async function HomePage() {
         </Link>
       )}
 
+      {showChecklist && <Checklist steps={steps!} />}
+
       <div className="grid grid-cols-2 gap-3">
         {tile("To list", toList, "/items?f=bought", toList > 0)}
         {tile("Listed now", listed, "/items?f=listed")}
@@ -81,7 +90,7 @@ export default async function HomePage() {
         </Link>
       )}
 
-      {toList + listed + toPost + waiting === 0 && (
+      {!showChecklist && toList + listed + toPost + waiting === 0 && (
         <div className="card space-y-3 text-center">
           <p className="font-bold">Nothing in stock yet</p>
           <Link href="/items/new" className="btn">Add your first find</Link>

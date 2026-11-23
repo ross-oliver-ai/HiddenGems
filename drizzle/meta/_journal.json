@@ -71,6 +71,13 @@
       "when": 1795408725804,
       "tag": "0009_where_from_starters",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795421982125,
+      "tag": "0010_first_run_checklist",
+      "breakpoints": true
     }
   ]
 }
