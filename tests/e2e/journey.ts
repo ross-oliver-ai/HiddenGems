@@ -46,6 +46,8 @@ async function main() {
   const trial = await mk("trial@example.com", 20);
   const locked = await mk("locked@example.com", -2);
   const hider = await mk("hider@example.com", 20);
+  const guesser = await mk("guesser@example.com", 20);
+  await mk("forgetful@example.com", 20);
   const old = await mk("old@example.com", 20); // stands in for an account that existed before the checklist: the migration hid it
   await dbm.db.insert(s.items).values({ userId: locked.id, name: "Locked user coat", status: "bought", boughtAt: "2026-01-01", buyPrice: "3.00" });
   const pool = new Pool({ connectionString: url, max: 1 });
@@ -385,6 +387,44 @@ async function main() {
     await od.page.waitForSelector("text=To list", { timeout: 15_000 }).catch(() => {});
     check("an account that existed before the checklist never sees it", (await od.page.locator("[data-checklist]").count()) === 0 && (await body(od.page)).includes("Nothing in stock yet"));
     await od.ctx.close();
+
+    // --- Sign-in rate limiting ---
+    const tryLogin = async (email: string, password: string) => {
+      const c = await browser.newContext(phone); const p = await c.newPage();
+      await p.goto(`${BASE}/login`); await p.fill("input[name=email]", email); await p.fill("input[name=password]", password); await p.click("button[type=submit]");
+      await p.waitForTimeout(1500);
+      const r = { url: p.url(), text: await body(p) }; await c.close(); return r;
+    };
+    let last = { url: "", text: "" };
+    for (let i = 0; i < 8; i++) last = await tryLogin("guesser@example.com", `wrong-guess-${i}`);
+    check("eight wrong passwords are each just refused", last.text.includes("Email or password is incorrect") && !last.text.includes("Too many"), last.text.slice(0, 160));
+    last = await tryLogin("guesser@example.com", "wrong-guess-9");
+    check("the ninth is told to wait", last.text.includes("Too many sign-in attempts") && /wait \d+ minutes?/.test(last.text), last.text.slice(0, 200));
+    last = await tryLogin("guesser@example.com", PASSWORD);
+    check("...even with the right password, until the wait is over", last.url.includes("/login") && last.text.includes("Too many sign-in attempts"), last.url);
+    last = await tryLogin("GUESSER@example.com", PASSWORD);
+    check("...however the email is typed", last.text.includes("Too many sign-in attempts"));
+    const bystander = await signIn("trial@example.com"); await bystander.page.getByText("To list").first().waitFor({ timeout: 15_000 }).catch(() => {});
+    check("someone else can still sign in", (await body(bystander.page)).includes("To list")); await bystander.ctx.close();
+    last = await tryLogin("nobody-here@example.com", "whatever-it-is");
+    check("an email with no account gets the same plain message as a wrong password", last.text.includes("Email or password is incorrect"));
+
+    // Waiting isn't the only way back in: resetting the password by email clears it
+    const { createToken } = await import("@/lib/tokens");
+    const raw = await createToken(guesser.id, "reset_password");
+    const rc = await browser.newContext(phone); const rp = await rc.newPage();
+    await rp.goto(`${BASE}/reset-password?token=${raw}`);
+    await rp.fill("input[name=password]", "A-brand-new-pass-77"); await rp.fill("input[name=confirm]", "A-brand-new-pass-77"); await rp.click("button[type=submit]");
+    await rp.waitForURL(/\/login\?reset=1/, { timeout: 15_000 }).catch(() => {}); await rc.close();
+    last = await tryLogin("guesser@example.com", "A-brand-new-pass-77");
+    check("a password reset lifts the wait", !last.url.includes("/login"), last.url + " " + last.text.slice(0, 120));
+
+    // A few slips followed by the right password: signs in, and the slips are forgotten
+    for (let i = 0; i < 7; i++) await tryLogin("forgetful@example.com", `slip-${i}`);
+    last = await tryLogin("forgetful@example.com", PASSWORD);
+    check("seven slips then the right password still signs in", !last.url.includes("/login"), last.url);
+    for (let i = 0; i < 7; i++) last = await tryLogin("forgetful@example.com", `slip-again-${i}`);
+    check("...and the slips were forgotten (seven more are still fine)", !last.text.includes("Too many"), last.text.slice(0, 120));
 
     // --- Signed out ---
     const anon = await browser.newContext(phone); const ap = await anon.newPage();
