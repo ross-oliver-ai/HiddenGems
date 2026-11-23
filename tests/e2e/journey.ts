@@ -514,6 +514,24 @@ async function main() {
     await ad.page.locator("[data-error-alerts]").waitFor({ timeout: 15_000 });
     const alertCard2 = await ad.page.locator("[data-error-alerts]").innerText();
     check("the Overview then lists the problem with its count", alertCard2.includes("route") && alertCard2.includes("Deliberate test error") && !alertCard2.includes("ada@example.com"), alertCard2.slice(0, 400));
+
+    // --- Daily job status ---
+    await pool.query("delete from job_runs");
+    await ad.page.goto(`${BASE}/admin`);
+    await ad.page.locator("[data-daily-job]").waitFor({ timeout: 15_000 });
+    check("before the daily job has ever run, the Overview says it hasn't run yet (calmly)", (await ad.page.locator("[data-daily-job]").getAttribute("data-daily-job")) === "never" && (await ad.page.locator("[data-daily-job]").innerText()).includes("Hasn't run yet"));
+    const noSecret = await ad.ctx.request.get(`${BASE}/api/cron/trial-reminders`);
+    check("the daily job refuses a caller without the secret, and that isn't recorded as a run", noSecret.status() === 401 && Number((await pool.query("select count(*) n from job_runs")).rows[0].n) === 0);
+    const cronRun = await ad.ctx.request.get(`${BASE}/api/cron/trial-reminders`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET ?? "x"}` } });
+    check("with the secret it runs, and records it", cronRun.status() === 200 && Number((await pool.query("select count(*) n from job_runs where ok = true")).rows[0].n) === 1, String(cronRun.status()));
+    await ad.page.goto(`${BASE}/admin`);
+    await ad.page.locator("[data-daily-job]").waitFor({ timeout: 15_000 });
+    const jobCard = await ad.page.locator("[data-daily-job]").innerText();
+    check("the Overview then says it ran today, with the UTC time", (await ad.page.locator("[data-daily-job]").getAttribute("data-daily-job")) === "ok" && /Ran today at \d\d:\d\d UTC/.test(jobCard), jobCard.slice(0, 300));
+    await pool.query("update job_runs set last_run_at = now() - interval '2 days'");
+    await ad.page.goto(`${BASE}/admin`);
+    await ad.page.locator("[data-daily-job]").waitFor({ timeout: 15_000 });
+    check("...and warns when it hasn't run for over a day", (await ad.page.locator("[data-daily-job]").getAttribute("data-daily-job")) === "overdue" && (await ad.page.locator("[data-daily-job]").innerText()).includes("longer ago than it should be"));
     await ad.ctx.close();
 
     // --- Signed out ---

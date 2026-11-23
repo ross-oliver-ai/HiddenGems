@@ -5,6 +5,8 @@ import { PLAN_GROUP_LABEL, agoLabel, computeUsage, type PlanGroup, type UsageSel
 import { loadActivity, loadUsers, waitingCount } from "@/lib/usage-data";
 import { alertRecipient, recentAlerts } from "@/lib/alerts";
 import { TestAlertForm } from "@/components/TestAlertForm";
+import { lastJobRun } from "@/lib/job-runs";
+import { DAILY_JOB, jobStatus } from "@/lib/job-status";
 
 function Stat({ value, label, href }: { value: string | number; label: string; href?: string }) {
   const body = (
@@ -38,8 +40,9 @@ function Person({ s, now, extra }: { s: UsageSeller; now: Date; extra?: string }
 export default async function AdminOverviewPage() {
   await requireAdmin();
   const now = new Date();
-  const [users, activity, waiting, alerts] = await Promise.all([loadUsers(), loadActivity(), waitingCount(), recentAlerts()]);
+  const [users, activity, waiting, alerts, jobRow] = await Promise.all([loadUsers(), loadActivity(), waitingCount(), recentAlerts(), lastJobRun(DAILY_JOB)]);
   const u = computeUsage(users, activity, now);
+  const job = jobStatus(jobRow, now);
   const conv = u.trials.ended === 0 ? null : percent((u.trials.subscribed / u.trials.ended) * 100);
   const planOrder: PlanGroup[] = ["trial", "paid", "failed", "readonly", "free"];
 
@@ -107,6 +110,13 @@ export default async function AdminOverviewPage() {
         <Stat value={u.totals.sales30} label="items sold in the last 30 days" />
         {waiting !== null && <Stat value={waiting} label="on the waitlist, not yet invited" href="/admin/waitlist" />}
       </div>
+
+      <Heading>Daily job</Heading>
+      <section className="card space-y-1" data-daily-job={job.state}>
+        <p className={`text-sm font-bold ${job.state === "failed" ? "text-danger" : job.state === "overdue" ? "text-warning" : ""}`}>{job.state === "ok" ? "✅ " : job.state === "never" ? "" : "⚠️ "}{job.headline}</p>
+        {job.detail && <p className="text-sm text-muted">{job.detail}</p>}
+        <p className="text-xs text-muted">The job that sends trial-reminder emails and tidies old error alerts. It should run every day.</p>
+      </section>
 
       <Heading>Error alerts</Heading>
       <section className="card space-y-3" data-error-alerts>
