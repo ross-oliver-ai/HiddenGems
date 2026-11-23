@@ -35,9 +35,9 @@ A mobile-first web app for resellers: record what you buy, list, sell and post, 
 | Area | State |
 |---|---|
 | Core app (items, lifecycle, photos, reports, goals, CSV export, themes, PWA) | Built and in daily use |
-| Error alerts: an email to the owner when something breaks on the server, plus an admin "Send a test alert" button (PR #47) | Built and tested (unit tests, and a browser run that hits a deliberate crash). **Not yet verified on the live site**: tap "Send a test alert" on the Overview and check the email arrives (and isn't in spam) |
-| Admin Overview with usage figures, and a filterable Users list (PR #46) | Built and tested in a phone-sized desktop browser. Not yet verified on the live site |
-| Account deletion, full data download, Settings grouped into Your app / Your account / Admin (PR #45) | Built and tested in a phone-sized desktop browser. Not yet verified on the live site (needs a real deletion with photos in Blob, and a test-mode subscription cancelled) |
+| Error alerts: an email to the owner when something breaks on the server, plus an admin "Send a test alert" button (PR #47) | Built and tested (unit tests, and a browser run that hits a deliberate crash). **Verified live (23 Nov 2026)**: the test alert arrived in the hello@ inbox within a minute. A real crash alert has not been seen yet, as nothing has broken |
+| Admin Overview with usage figures, and a filterable Users list (PR #46) | Built and tested in a phone-sized desktop browser. Overview seen working on the live site on a phone (23 Nov 2026) |
+| Account deletion, full data download, Settings grouped into Your app / Your account / Admin (PR #45) | Built and tested in a phone-sized desktop browser. **Verified live (23 Nov 2026)** with a real test account that had a photo: the data download zip was correct, deleting removed the account and the photo from Blob. Not yet checked: a test-mode Stripe subscription being cancelled on deletion |
 | Public landing page and waitlist | Live |
 | Self sign-up, email confirmation, password reset | Built; switched on with `SIGNUPS_OPEN=true` |
 | Email change (user and admin) | Built, tested live |
@@ -50,7 +50,7 @@ A mobile-first web app for resellers: record what you buy, list, sell and post, 
 | Loading placeholders and "Show more" on Items (PR #32) | Built. Not yet verified on the live site. Items load 50 at a time; an admin-only timing readout is there to find out why pages feel slow |
 | Automated tests | GitHub runs them on every pull request and on `main` (billing rules, report maths, migrations, a browser run through the core journey). See [Tests](#tests) |
 | Trial-reminder emails (daily cron) | Built and registered in Vercel (Active, 08:00 UTC). Each run is now recorded and shown on the admin Overview's "Daily job" card (PR #48); the first scheduled run has not been confirmed there yet |
-| Daily job status on the admin Overview (PR #48) | Built and tested (unit tests and the browser run). Not yet verified on the live site |
+| Daily job status on the admin Overview (PR #48) | Built and tested (unit tests and the browser run). On the live site a manual Run from Vercel fills the card ("Ran today at 22:07 UTC", 23 Nov 2026). Not yet seen: the scheduled 08:00 run recording itself |
 
 **People and data.** The first testers (the owner's wife and a friend; the wife now uses the app from the new domain) are marked **"free forever"** (`billing_exempt`) and are never locked. The migration that shipped billing set `billing_exempt = true` for every account that existed at that moment. Admins are never billed either.
 
@@ -595,14 +595,16 @@ When the **Help page**, **landing page**, **checklist captions** or **terms** ch
 - [ ] Live Stripe keys, live webhook with its own secret, live Customer portal, a real £3 test payment and refund (see [Deploying](#12-deploying-and-operating)).
 - [ ] Business status (sole trader or limited company), VAT position, and a professional review of the terms and privacy notice (including the 14-day refund promise; add the business name; the contact email is now on both pages).
 - [x] `hello@hiddengemsapp.co.uk` receives and sends mail (23 Nov 2026): a Fasthosts forwarder sends it to the owner's Gmail, and Gmail's "Send mail as" replies from the hello@ address. The Help page, terms and privacy all send people there; nothing in the app checks it works, so send a test message now and then. If replies to other providers land in spam, send through Resend's SMTP (the domain is already verified there) instead of Gmail's.
-- [ ] Look at the app and landing page on a PC and an Android phone now that the Nunito font is bundled (PR #42): check nothing wraps oddly or looks heavier than on an iPhone.
-- [ ] Check sign-in rate limiting on the live site (PR #43): from a phone, then a PC, enter a wrong password 9 times for a test account (the 9th should say to wait), check a different account still signs in, and confirm a password reset lets the test account straight back in. This is the one check that proves the visitor address is read correctly on Vercel. If people are ever blocked unexpectedly, set `SIGN_IN_LIMIT=off` in Vercel and redeploy.
-- [ ] Check account deletion and the data download on the live site (PR #45): with a test account that has a photo, download the zip and open the spreadsheets; then delete the account and confirm the photo is gone from Vercel Blob and the sign-in page shows the banner. With a test-mode subscription, confirm the subscription shows as cancelled in the Stripe sandbox.
-- [ ] Try the first-run checklist and spotlight on a real phone (new account): it has only been run in a phone-sized desktop browser. Check the ring sits right on the fees card, the item steps and the add form, with the keyboard open, and that it reads well in each theme and in dark mode.
+- [x] Nunito font (PR #42) looks good on a PC (23 Nov 2026).
+- [ ] Still to do: look at the app and landing page on an Android phone (no Android device available yet; low risk).
+- [x] Sign-in rate limiting works on the live site (23 Nov 2026): from a phone, the 9th wrong password for an account showed "wait 15 minutes", and signing in worked again once the wait was over (22:41). This also shows the visitor address is read correctly on Vercel. Note it locked the account's owner out too, as designed and listed under known gaps. Not yet tried: a password reset clearing the lockout, a different account signing in meanwhile, and a PC.
+- [x] Account deletion and the data download checked on the live site (PR #45, 23 Nov 2026): the zip was correct, the account was deleted and signed out, the photo was gone from Vercel Blob, and the sign-in page showed the banner (which stays on screen while the address still has the deleted flag, harmless). Still to do: with a test-mode subscription, confirm it shows as cancelled in the Stripe sandbox.
+- [x] First-run checklist and spotlight tried on a real phone with a new account (23 Nov 2026): works.
 - [x] Error alerts proven live (23 Nov 2026): the test alert from the Overview arrived in the hello@ inbox within a minute, not in spam.
-- [ ] Confirm the daily job ran by itself: after PR #48 is live, check the Overview's Daily job card after the next 08:00 UTC (it should say "Ran today at 08:xx UTC"). Starting it with Vercel's Run button (Schedules → Cron Jobs) fills the card straight away but only proves the job works, not that the schedule fires.
+- [ ] Confirm the daily job ran by itself: after PR #48 is live, check the Overview's Daily job card after the next 08:00 UTC (it should say "Ran today at 08:xx UTC"). Starting it with Vercel's Run button (Schedules → Cron Jobs) fills the card straight away but only proves the job works, not that the schedule fires (a manual run was done on 23 Nov 2026 at 22:07 UTC and the card showed it).
 - [x] Housekeeping done: `SETUP_TOKEN` deleted; Vercel Ignored Build Step set to Only build production; Railway database password regenerated (22 Nov 2026) and `DATABASE_URL` in Vercel updated.
-- [ ] Housekeeping still to do: confirm what the Postgres service's Backups tab shows (Hobby appears to have no volume backups); test a real photo upload on a phone.
+- [x] A real photo upload from a phone works (23 Nov 2026).
+- [ ] Housekeeping still to do: confirm what the Postgres service's Backups tab shows (Hobby appears to have no volume backups).
 - [ ] Decision (22 Nov 2026): upgrade Railway to Pro (about $20/month) for backups once real customers start, before taking their data.
 
 **Agreed and planned: multi-platform selling (design agreed 22 Nov 2026; all four PRs built)**
