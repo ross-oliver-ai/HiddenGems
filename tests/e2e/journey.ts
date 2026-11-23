@@ -100,14 +100,20 @@ async function main() {
 
     // add an item
     await page.goto(`${BASE}/items/new`);
+    check("the add form asks 'Where from' (not 'Charity shop')", (await page.locator("label[for=shop]").innerText()).trim() === "Where from" && !(await body(page)).includes("Charity shop"));
+    const startOptions = await page.locator("#shop option").allInnerTexts();
+    check("...and a new account's list starts with Car Boot, Charity Shop, Online Auction, Own Wardrobe (A to Z)", JSON.stringify(startOptions.slice(1, 5)) === JSON.stringify(["Car Boot", "Charity Shop", "Online Auction", "Own Wardrobe"]), JSON.stringify(startOptions));
     await page.fill("#name", "Journey boots");
     await page.fill("#buyPrice", "4");
+    await page.selectOption("#shop", { label: "Car Boot" });
     await page.selectOption("#categoryId", { label: "Shoes" });
     await page.click("button[type=submit]:has-text('Save')");
     await page.waitForURL(/\/items(\/\d+)?$/, { timeout: 30_000 });
     const { rows } = await pool.query("select id, status, buy_price from items where user_id=$1 and name='Journey boots'", [trial.id]);
     check("the new item is saved as 'to list' with the right price", rows.length === 1 && rows[0].status === "bought" && rows[0].buy_price === "4.00", JSON.stringify(rows));
     const id = rows[0]?.id;
+    await page.goto(`${BASE}/items/new`);
+    check("the next item starts on the same 'Where from' as the last one", (await page.inputValue("#shop")) === "Car Boot");
 
     const plat = async (name: string) => (await pool.query("select id from platforms where user_id=$1 and name=$2", [trial.id, name])).rows[0].id as number;
     const vinted = await plat("Vinted");
@@ -218,11 +224,13 @@ async function main() {
     await page.locator("summary:has-text('How these numbers are worked out')").click();
     const help = await body(page);
     check("the 'how these numbers are worked out' box says fees and postage you paid are taken off", /fees and any postage you paid/.test(help) && !/buyers pay it/.test(help));
+    check("reports call the shop table 'Best places to buy', not 'Best charity shops'", rep.includes("Best places to buy") && !rep.includes("charity shops"), rep.slice(0, 200));
     check("reports show the selling platforms with their sell-through (each 1 of 2)", rep.includes("Selling platforms") && (rep.match(/50% \(1\/2\)/g) ?? []).length === 2, rep.slice(0, 600));
     check("reports show how items got to the buyer, with profit and the number sold", rep.includes("How items got to the buyer") && rep.includes("£7.50") && rep.includes("1 sold"), rep.slice(0, 600));
     const csv = await ctx.request.get(`${BASE}/reports/export`);
     const csvText = await csv.text();
     check("the CSV export includes the item and the fee columns", csv.status() === 200 && csvText.includes("Journey boots") && csvText.includes("Fees,Postage paid,Profit") && csvText.includes("Sold on,How it got there"));
+    check("...with a 'Where from' column showing Car Boot, and no 'Charity shop' heading", csvText.includes("Where from") && csvText.includes("Car Boot") && !csvText.includes("Charity shop"), csvText.slice(0, 200));
 
     // Undo last step (the collected lamp is now completed)
     await page.goto(`${BASE}/items/${boots2.id}`);

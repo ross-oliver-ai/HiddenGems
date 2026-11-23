@@ -133,7 +133,7 @@ export async function computeReport(user: User, input: PeriodInput): Promise<Rep
     const out: Outcome[] = [];
     for (const { item: i, shop, category, postal, soldOn } of rows) {
       const cost = Number(i.buyPrice);
-      const common = { name: i.name, category: category ?? "No category", shop: shop ?? "No shop" };
+      const common = { name: i.name, category: category ?? "No category", shop: shop ?? "Not set" };
       if (i.soldAt && inR(i.soldAt)) {
         const revenue = Number(i.soldPrice ?? 0) - Number(i.refundAmount ?? 0);
         const fees = Number(i.fees) + Number(i.postagePaid);

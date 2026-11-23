@@ -75,7 +75,7 @@ export function ItemForm({
       </div>
 
       <div>
-        <label className="label" htmlFor="shop">Charity shop</label>
+        <label className="label" htmlFor="shop">Where from</label>
         <ShopPicker shops={shops} defaultValue={values.shop} />
       </div>
 

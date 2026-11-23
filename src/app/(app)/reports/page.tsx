@@ -229,11 +229,11 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       </ChartCard>
 
       <ChartCard
-        title="Best charity shops"
-        subtitle="Profit by shop (tap a bar for return on cost)"
-        table={{ head: ["Shop", "Profit", "Sold", "Return"], rows: r.byShop.map((x) => [x.name, signed(x.value), x.items, percent(x.roi ?? null)]) }}
+        title="Best places to buy"
+        subtitle="Profit by where it came from (tap a bar for return on cost)"
+        table={{ head: ["Where from", "Profit", "Sold", "Return"], rows: r.byShop.map((x) => [x.name, signed(x.value), x.items, percent(x.roi ?? null)]) }}
       >
-        {r.byShop.length === 0 ? <Empty>No sales yet.</Empty> : <RankedBars rows={fold(r.byShop)} kind="money" label="Profit by charity shop" />}
+        {r.byShop.length === 0 ? <Empty>No sales yet.</Empty> : <RankedBars rows={fold(r.byShop)} kind="money" label="Profit by where from" />}
       </ChartCard>
 
       <ChartCard

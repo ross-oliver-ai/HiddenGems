@@ -96,7 +96,7 @@ describe("computeReport()", { skip: dbSkipReason }, () => {
 
     it("rankings by shop, category and postal service", () => {
       const byName = (r: { name: string; value: number }[]) => Object.fromEntries(r.map((x) => [x.name, x.value]));
-      assert.deepEqual(byName(report.byShop), { Oxfam: 12, Barnardos: 0, "No shop": -6 });
+      assert.deepEqual(byName(report.byShop), { Oxfam: 12, Barnardos: 0, "Not set": -6 });
       assert.deepEqual(byName(report.byCategory), { Shoes: 15, Books: 4, "No category": -13 });
       // postage counts sales only
       assert.deepEqual(byName(report.byPostal), { "Royal Mail": 1, Evri: 1, "Not set": 1 });
