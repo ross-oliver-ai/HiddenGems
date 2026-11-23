@@ -55,6 +55,10 @@ export const users = pgTable(
     billingExempt: boolean("billing_exempt").notNull().default(false),
     // End of the free trial (set at sign-up). Null falls back to created_at + the trial length.
     trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
+    // First-run checklist on Home. New accounts see it until they hide it or finish it; the migration that added this hid it for
+    // every account that already existed. feesReviewedAt is set whenever the selling-fees form is saved (a 0% fee is a valid answer).
+    checklistHidden: boolean("checklist_hidden").notNull().default(false),
+    feesReviewedAt: timestamp("fees_reviewed_at", { withTimezone: true }),
     stripeCustomerId: text("stripe_customer_id"),
     stripeSubscriptionId: text("stripe_subscription_id"),
     // Mirrors Stripe's subscription status: active, past_due, canceled, unpaid, ...

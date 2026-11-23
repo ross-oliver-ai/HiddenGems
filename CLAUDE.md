@@ -12,6 +12,7 @@
 - **Email** table for any new or changed email; **Scheduled jobs** for any new cron.
 - **Integrations** and **Environment variables** for any new service or variable.
 - **Deploying and operating** for any change to how it's built, deployed or switched on.
+- **Screens that other things describe** (README, section 14): any change to a screen, label, step, status or the place a setting lives must be checked against that table. It lists what else talks about screens (the first-run checklist and its spotlight targets, the Help page, the landing page and its mock figures, the terms, the tests) and what to update with each.
 - **Working notes and gotchas** for anything a future developer would trip over.
 - **Project history**: add a row for each shipped change.
 - **Open items and backlog**: tick off what's done, add what's newly discovered.

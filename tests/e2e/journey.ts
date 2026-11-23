@@ -45,15 +45,18 @@ async function main() {
   };
   const trial = await mk("trial@example.com", 20);
   const locked = await mk("locked@example.com", -2);
+  const hider = await mk("hider@example.com", 20);
+  const old = await mk("old@example.com", 20); // stands in for an account that existed before the checklist: the migration hid it
   await dbm.db.insert(s.items).values({ userId: locked.id, name: "Locked user coat", status: "bought", boughtAt: "2026-01-01", buyPrice: "3.00" });
   const pool = new Pool({ connectionString: url, max: 1 });
+  await pool.query("update users set checklist_hidden = true where id = $1", [old.id]);
 
   await waitForServer();
   const browser = await chromium.launch();
   const phone = { viewport: { width: 390, height: 844 } };
 
-  async function signIn(email: string) {
-    const ctx = await browser.newContext(phone);
+  async function signIn(email: string, extra: Record<string, unknown> = {}) {
+    const ctx = await browser.newContext({ ...phone, ...extra });
     const page = await ctx.newPage();
     await page.goto(`${BASE}/login`);
     await page.fill("input[name=email]", email);
@@ -98,7 +101,53 @@ async function main() {
     await bp.waitForTimeout(1500);
     check("a wrong password is refused", bp.url().includes("/login")); await bad.close();
 
+    // --- First-run checklist (new account) ---
+    const ring = page.locator("[data-spotlight-ring]");
+    const covers = (tour: string) => page.evaluate((t) => {
+      const r = document.querySelector("[data-spotlight-ring]")?.getBoundingClientRect();
+      const e = document.querySelector(`[data-tour="${t}"]`)?.getBoundingClientRect();
+      return !!r && !!e && r.top <= e.top && r.left <= e.left && r.bottom >= e.bottom && r.right >= e.right;
+    }, tour);
+    await page.goto(BASE);
+    await page.waitForSelector("[data-checklist]");
+    const stepIds = await page.locator("[data-checklist-step]").evaluateAll((els) => els.map((e) => e.getAttribute("data-checklist-step")));
+    const ck = await body(page);
+    check("a new account's Home shows 'Getting started' with four steps, none done", ck.includes("Getting started") && ck.includes("0 of 4 done") && JSON.stringify(stepIds) === JSON.stringify(["fees", "first-item", "list", "sale"]), ck.slice(0, 300));
+    check("...and 'list it' and 'record a sale' aren't links yet (nothing to open)", (await page.locator("[data-checklist-step=list] a, [data-checklist-step=sale] a").count()) === 0 && ck.includes("Add an item first."));
+    check("...in place of the old 'Nothing in stock yet' card", !ck.includes("Nothing in stock yet"));
+    await page.click("[data-checklist-step=fees] a");
+    await page.waitForURL(/\/settings\/platforms/);
+    await ring.waitFor({ timeout: 10_000 }).catch(() => {});
+    await page.waitForTimeout(900);
+    check("the fees step opens Settings with a spotlight ring and a caption", (await ring.count()) === 1 && (await page.locator("[data-spotlight-caption]").innerText()).includes("selling fee"));
+    check("...ringing the fees card (and it has left '?tour=' out of the address)", (await covers("fees")) && !page.url().includes("tour="), page.url());
+    check("...without blocking taps (the ring ignores them)", (await ring.evaluate((e) => getComputedStyle(e).pointerEvents)) === "none");
+    await page.waitForTimeout(700);
+    await page.click("input[name^=fee_] >> nth=0");
+    await page.waitForTimeout(300);
+    check("...and a tap anywhere fades it", (await ring.count()) === 0);
+    await page.reload();
+    await page.waitForTimeout(1500);
+    check("...and a refresh doesn't bring it back", (await ring.count()) === 0);
+    await page.goto(`${BASE}/settings/platforms?tour=bogus`);
+    await page.waitForTimeout(1500);
+    check("an unknown tour name does nothing", (await ring.count()) === 0);
+    await page.goto(`${BASE}/settings/platforms?tour=fees`);
+    await ring.waitFor({ timeout: 10_000 }).catch(() => {});
+    await page.waitForTimeout(700);
+    await page.click("[data-spotlight-caption] button:has-text('Got it')");
+    check("'Got it' closes the spotlight", (await ring.count()) === 0);
+    await page.click("button:has-text('Save fees')"); // every fee left at 0: still counts as checked
+    await page.waitForTimeout(1500);
+    await page.goto(BASE);
+    await page.waitForSelector("[data-checklist]");
+    check("saving the fees form (even all 0%) ticks 'Check your selling fees'", (await page.locator("[data-checklist-step=fees]").getAttribute("data-done")) === "true" && (await body(page)).includes("1 of 4 done"));
+
     // add an item
+    await page.goto(`${BASE}/items/new?tour=add-item`);
+    await ring.waitFor({ timeout: 10_000 }).catch(() => {});
+    await page.waitForTimeout(900);
+    check("'Add your first find' points at the name field on the add form", (await ring.count()) === 1 && (await covers("add-item")));
     await page.goto(`${BASE}/items/new`);
     check("the add form asks 'Where from' (not 'Charity shop')", (await page.locator("label[for=shop]").innerText()).trim() === "Where from" && !(await body(page)).includes("Charity shop"));
     const startOptions = await page.locator("#shop option").allInnerTexts();
@@ -112,6 +161,14 @@ async function main() {
     const { rows } = await pool.query("select id, status, buy_price from items where user_id=$1 and name='Journey boots'", [trial.id]);
     check("the new item is saved as 'to list' with the right price", rows.length === 1 && rows[0].status === "bought" && rows[0].buy_price === "4.00", JSON.stringify(rows));
     const id = rows[0]?.id;
+    await page.goto(BASE);
+    await page.waitForSelector("[data-checklist]");
+    check("adding an item ticks 'Add your first find' (2 of 4 done)", (await page.locator("[data-checklist-step=first-item]").getAttribute("data-done")) === "true" && (await body(page)).includes("2 of 4 done"));
+    await page.click("[data-checklist-step=list] a");
+    await page.waitForURL(new RegExp(`/items/${id}$`));
+    await ring.waitFor({ timeout: 10_000 }).catch(() => {});
+    await page.waitForTimeout(900);
+    check("'List it for sale' opens that item and points at its List it step", (await ring.count()) === 1 && (await covers("list-step")));
     await page.goto(`${BASE}/items/new`);
     check("the next item starts on the same 'Where from' as the last one", (await page.inputValue("#shop")) === "Car Boot");
 
@@ -136,6 +193,14 @@ async function main() {
     await page.waitForTimeout(1500);
     const live = (await pool.query("select platform_id, price from listings where item_id=$1 and ended_at is null order by platform_id", [id])).rows;
     check("the item is now live on two platforms", live.length === 2, JSON.stringify(live));
+    await page.goto(BASE);
+    await page.waitForSelector("[data-checklist]");
+    check("listing it ticks 'List it for sale' (3 of 4 done)", (await page.locator("[data-checklist-step=list]").getAttribute("data-done")) === "true" && (await body(page)).includes("3 of 4 done"));
+    await page.click("[data-checklist-step=sale] a");
+    await page.waitForURL(new RegExp(`/items/${id}$`));
+    await ring.waitFor({ timeout: 10_000 }).catch(() => {});
+    await page.waitForTimeout(900);
+    check("'Record your first sale' opens the listed item and points at its sell step", (await ring.count()) === 1 && (await covers("sell-step")));
 
     // set eBay's selling fee to 10% in Settings
     await page.goto(`${BASE}/settings/platforms`);
@@ -158,6 +223,9 @@ async function main() {
     check("...and the fee and the postage I paid", sold.fees === "1.50" && sold.postage_paid === "2.00", JSON.stringify(sold));
     const stillLive = (await pool.query("select count(*)::int as n from listings where item_id=$1 and ended_at is null", [id])).rows[0].n;
     check("selling ends the listing on every platform", stillLive === 0);
+    await page.goto(BASE);
+    await page.waitForSelector("text=Waiting for money, text=To send", { timeout: 15_000 }).catch(() => {});
+    check("recording the first sale finishes the checklist and it goes away", !(await body(page)).includes("Getting started") && (await page.locator("[data-checklist]").count()) === 0);
     await page.goto(`${BASE}/items/${id}`);
     const t = await body(page);
     check("the item page shows the profit after fees and postage (£15 - £1.50 - £2 - £4 = £7.50) and where it sold", t.includes("£7.50") && /profit/i.test(t) && t.includes("eBay") && t.includes("Fees") && t.includes("Postage I paid"), t.slice(0, 400));
@@ -287,6 +355,9 @@ async function main() {
     check("...but can still see their items", (await body(lk.page)).includes("Locked user coat"));
     const lcsv = await lk.ctx.request.get(`${BASE}/reports/export`);
     check("...and still export their CSV", lcsv.status() === 200 && (await lcsv.text()).includes("Locked user coat"));
+    await lk.page.goto(BASE);
+    await lk.page.waitForSelector("text=To list", { timeout: 15_000 }).catch(() => {});
+    check("an expired trial doesn't get the first-run checklist (it can't add anything)", (await lk.page.locator("[data-checklist]").count()) === 0);
     await lk.page.goto(`${BASE}/settings`);
     check("an expired trial still sees the Help and feedback link in Settings", (await lk.page.locator("a[href='/help']").count()) === 1);
     await lk.page.goto(`${BASE}/help`);
@@ -294,6 +365,26 @@ async function main() {
     const lhelp = await body(lk.page);
     check("...and can open the Help page (it isn't blocked like adding is)", lk.page.url().endsWith("/help") && lhelp.includes("How profit is worked out"), lk.page.url());
     await lk.ctx.close();
+
+    // --- Hiding the checklist, reduced motion, and accounts that existed before it ---
+    const hd = await signIn("hider@example.com", { reducedMotion: "reduce" });
+    await hd.page.waitForSelector("[data-checklist]", { timeout: 15_000 });
+    await hd.page.goto(`${BASE}/settings/platforms?tour=fees`);
+    await hd.page.waitForSelector("[data-spotlight-ring]", { timeout: 10_000 });
+    check("with reduced motion on, the spotlight ring doesn't pulse", (await hd.page.locator("[data-spotlight-ring]").evaluate((e) => getComputedStyle(e).animationName)) === "none");
+    await hd.page.goto(BASE);
+    await hd.page.waitForSelector("[data-checklist]");
+    await hd.page.click("button:has-text('Hide this')");
+    await hd.page.waitForTimeout(1500);
+    check("'Hide this' removes the checklist", (await hd.page.locator("[data-checklist]").count()) === 0);
+    await hd.page.reload();
+    await hd.page.waitForTimeout(1500);
+    check("...and it stays hidden", (await hd.page.locator("[data-checklist]").count()) === 0 && (await pool.query("select checklist_hidden from users where id=$1", [hider.id])).rows[0].checklist_hidden === true);
+    await hd.ctx.close();
+    const od = await signIn("old@example.com");
+    await od.page.waitForSelector("text=To list", { timeout: 15_000 }).catch(() => {});
+    check("an account that existed before the checklist never sees it", (await od.page.locator("[data-checklist]").count()) === 0 && (await body(od.page)).includes("Nothing in stock yet"));
+    await od.ctx.close();
 
     // --- Signed out ---
     const anon = await browser.newContext(phone); const ap = await anon.newPage();

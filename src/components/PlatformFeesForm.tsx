@@ -11,7 +11,7 @@ export function PlatformFeesForm({ platforms }: { platforms: P[] }) {
   const [state, action] = useActionState(updateFeesAction, {} as { error?: string; ok?: boolean });
   const shown = platforms.filter((p) => !p.archived);
   return (
-    <section className="card space-y-3">
+    <section className="card space-y-3" data-tour="fees">
       <div>
         <h2 className="font-extrabold">Selling fees</h2>
         <p className="text-sm text-muted">

@@ -58,7 +58,7 @@ export function ItemForm({
       {edit && <input type="hidden" name="id" value={values.id} />}
       <PhotoPicker initialUrl={values.photoUrl} />
 
-      <div>
+      <div data-tour={edit ? undefined : "add-item"}>
         <label className="label" htmlFor="name">What is it?</label>
         <input id="name" name="name" required maxLength={120} defaultValue={values.name} placeholder="e.g. Barbour wax jacket" className="field" autoComplete="off" />
       </div>
