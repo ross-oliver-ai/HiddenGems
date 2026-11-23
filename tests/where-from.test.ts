@@ -17,7 +17,8 @@ describe("starter list", { skip: dbSkipReason }, () => {
 describe("migration 0009: starter entries for existing accounts", { skip: dbSkipReason }, () => {
   let pool: Pool;
   let a: number, b: number, c: number;
-  const names = async (uid: number) => (await pool.query("select name, archived from shops where user_id=$1 order by name", [uid])).rows;
+  // Sorted here, not by the database, so the test doesn't depend on the database's sort rules for capital letters
+  const names = async (uid: number) => (await pool.query("select name, archived from shops where user_id=$1", [uid])).rows.sort((x, y) => (x.name < y.name ? -1 : 1));
 
   before(async () => {
     const url = TEST_DATABASE_URL!;
