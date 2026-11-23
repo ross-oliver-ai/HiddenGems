@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { THEMES, COLOR_MODES } from "@/lib/themes";
 import { UpdateDatabase } from "@/components/UpdateDatabase";
+import { SettingsGroup } from "@/components/SettingsGroup";
 import { pendingMigrations } from "@/lib/migrations";
 import { updateAppearanceAction, logoutAction } from "./actions";
 
@@ -16,6 +17,8 @@ export default async function SettingsPage() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-extrabold tracking-tight">Settings</h1>
+
+      <SettingsGroup>Your app</SettingsGroup>
 
       <section className="card space-y-4">
         <h2 className="font-extrabold">Colour theme</h2>
@@ -65,19 +68,6 @@ export default async function SettingsPage() {
         </div>
       </section>
 
-      <Link href="/settings/account" className="card flex items-center justify-between font-extrabold">
-        Account
-        <span className="flex items-center gap-2 text-sm font-semibold text-muted">
-          Email &amp; password
-          <span aria-hidden className="font-extrabold text-primary">→</span>
-        </span>
-      </Link>
-
-      <Link href="/billing" className="card flex items-center justify-between font-extrabold">
-        Billing
-        <span aria-hidden className="text-primary">→</span>
-      </Link>
-
       <Link href="/settings/platforms" className="card flex items-center justify-between font-extrabold">
         Platforms & postage
         <span aria-hidden className="text-primary">→</span>
@@ -93,6 +83,21 @@ export default async function SettingsPage() {
         <span aria-hidden className="text-primary">→</span>
       </Link>
 
+      <SettingsGroup>Your account</SettingsGroup>
+
+      <Link href="/settings/account" className="card flex items-center justify-between font-extrabold">
+        Account
+        <span className="flex items-center gap-2 text-sm font-semibold text-muted">
+          Email, password &amp; your data
+          <span aria-hidden className="font-extrabold text-primary">→</span>
+        </span>
+      </Link>
+
+      <Link href="/billing" className="card flex items-center justify-between font-extrabold">
+        Billing
+        <span aria-hidden className="text-primary">→</span>
+      </Link>
+
       <Link href="/help" className="card flex items-center justify-between font-extrabold">
         Help and feedback
         <span aria-hidden className="text-primary">→</span>
@@ -100,6 +105,7 @@ export default async function SettingsPage() {
 
       {user.role === "admin" && (
         <>
+          <SettingsGroup>Admin</SettingsGroup>
           <Link href="/admin/users" className="card flex items-center justify-between font-extrabold">
             Manage users
             <span aria-hidden className="text-primary">→</span>
