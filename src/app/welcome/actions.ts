@@ -1,5 +1,6 @@
 "use server";
 
+import { recordError } from "@/lib/alerts";
 import { count } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
@@ -25,6 +26,7 @@ export async function joinWaitlistAction(_prev: WaitlistState, formData: FormDat
     await db.insert(waitlist).values({ email: parsed.data }).onConflictDoNothing();
   } catch (e) {
     console.error("Waitlist sign-up failed", e);
+    await recordError({ source: "Waitlist sign-up", error: e, route: "/welcome" });
     return { error: "Sorry, sign-ups aren't working just yet. Please try again soon.", email: raw };
   }
   return { ok: true };

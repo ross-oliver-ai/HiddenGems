@@ -1,5 +1,6 @@
 "use server";
 
+import { recordError } from "@/lib/alerts";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { billingEnforced } from "@/lib/billing";
@@ -19,6 +20,7 @@ export async function startCheckoutAction() {
     url = await createCheckoutUrl(user, await appUrl());
   } catch (e) {
     console.error("Couldn't start checkout", e);
+    await recordError({ source: "Checkout", error: e, route: "/billing" });
     redirect("/billing?error=1");
   }
   redirect(url);
@@ -33,6 +35,7 @@ export async function openPortalAction() {
     url = await createPortalUrl(user.stripeCustomerId, `${await appUrl()}/billing`);
   } catch (e) {
     console.error("Couldn't open the billing portal", e);
+    await recordError({ source: "Billing portal", error: e, route: "/billing" });
     redirect("/billing?error=1");
   }
   redirect(url);

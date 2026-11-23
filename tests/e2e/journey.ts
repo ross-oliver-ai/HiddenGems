@@ -493,6 +493,27 @@ async function main() {
     check("...and 'Add a user' is folded away until it's tapped, so the list comes first", (await ad.page.locator("[data-add-user][open]").count()) === 0 && !(await ad.page.locator("[data-add-user] #name").first().isVisible().catch(() => false)));
     await ad.page.goto(`${BASE}/admin/users?show=bogus`);
     check("an unknown filter just shows everyone", (await ad.page.locator("[data-user-filters] a[aria-current=page]").innerText()).startsWith("All"));
+
+    // --- Error alerts ---
+    await ad.page.goto(`${BASE}/admin`);
+    await ad.page.locator("[data-error-alerts]").waitFor({ timeout: 15_000 });
+    const alertCard = await ad.page.locator("[data-error-alerts]").innerText();
+    check("the Overview has an 'Error alerts' card that says no problems are recorded yet", (await ad.page.getByText("Error alerts").count()) >= 1 && alertCard.includes("No problems recorded"), alertCard.slice(0, 300));
+    check("...with a 'Send a test alert' button", (await ad.page.locator("[data-test-alert] button:has-text('Send a test alert')").count()) === 1);
+    await ad.page.locator("[data-test-alert] button:has-text('Send a test alert')").click();
+    await ad.page.locator("[data-test-alert] [role=status], [data-test-alert] [role=alert]").first().waitFor({ timeout: 20_000 });
+    const testRow = (await pool.query("select * from error_alerts where signature = 'test-alert'")).rows;
+    check("tapping it records a test alert and tells me what happened", testRow.length === 1 && testRow[0].is_test === true && (await ad.page.locator("[data-test-alert]").innerText()).length > 20, JSON.stringify(testRow));
+
+    const boom1 = await ad.ctx.request.get(`${BASE}/api/e2e-boom`);
+    const boom2 = await ad.ctx.request.get(`${BASE}/api/e2e-boom`);
+    const boomRows = (await pool.query("select * from error_alerts where is_test = false")).rows;
+    check("a deliberate server crash is recorded once, with a count of 2 after a repeat", boom1.status() === 500 && boom2.status() === 500 && boomRows.length === 1 && boomRows[0].count === 2 && boomRows[0].source === "route", JSON.stringify(boomRows));
+    check("...and the stored summary has no email address or long token in it", !JSON.stringify(boomRows).includes("ada@example.com") && !JSON.stringify(boomRows).includes("abcdefghijklmnopqrstuvwxyz0123456789"), JSON.stringify(boomRows));
+    await ad.page.goto(`${BASE}/admin`);
+    await ad.page.locator("[data-error-alerts]").waitFor({ timeout: 15_000 });
+    const alertCard2 = await ad.page.locator("[data-error-alerts]").innerText();
+    check("the Overview then lists the problem with its count", alertCard2.includes("route") && alertCard2.includes("Deliberate test error") && !alertCard2.includes("ada@example.com"), alertCard2.slice(0, 400));
     await ad.ctx.close();
 
     // --- Signed out ---

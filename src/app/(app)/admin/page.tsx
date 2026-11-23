@@ -3,6 +3,8 @@ import { requireAdmin } from "@/lib/auth";
 import { percent } from "@/lib/format";
 import { PLAN_GROUP_LABEL, agoLabel, computeUsage, type PlanGroup, type UsageSeller } from "@/lib/usage";
 import { loadActivity, loadUsers, waitingCount } from "@/lib/usage-data";
+import { alertRecipient, recentAlerts } from "@/lib/alerts";
+import { TestAlertForm } from "@/components/TestAlertForm";
 
 function Stat({ value, label, href }: { value: string | number; label: string; href?: string }) {
   const body = (
@@ -36,7 +38,7 @@ function Person({ s, now, extra }: { s: UsageSeller; now: Date; extra?: string }
 export default async function AdminOverviewPage() {
   await requireAdmin();
   const now = new Date();
-  const [users, activity, waiting] = await Promise.all([loadUsers(), loadActivity(), waitingCount()]);
+  const [users, activity, waiting, alerts] = await Promise.all([loadUsers(), loadActivity(), waitingCount(), recentAlerts()]);
   const u = computeUsage(users, activity, now);
   const conv = u.trials.ended === 0 ? null : percent((u.trials.subscribed / u.trials.ended) * 100);
   const planOrder: PlanGroup[] = ["trial", "paid", "failed", "readonly", "free"];
@@ -105,6 +107,32 @@ export default async function AdminOverviewPage() {
         <Stat value={u.totals.sales30} label="items sold in the last 30 days" />
         {waiting !== null && <Stat value={waiting} label="on the waitlist, not yet invited" href="/admin/waitlist" />}
       </div>
+
+      <Heading>Error alerts</Heading>
+      <section className="card space-y-3" data-error-alerts>
+        <p className="text-sm text-muted">
+          When something breaks on the server, an email goes to {alertRecipient()}: one per problem per hour, never more than 20 different problems a day, and nothing about any customer. Problems are forgotten after 30 days without recurring.
+        </p>
+        {alerts.length === 0 ? (
+          <p className="text-sm font-bold">No problems recorded. 🎉</p>
+        ) : (
+          <div className="divide-y divide-border">
+            {alerts.map((a) => (
+              <div key={a.signature} className="py-2">
+                <p className="text-sm font-bold">
+                  {a.isTest ? "Test alert" : a.source}
+                  {a.route ? <span className="font-normal text-muted"> · {a.route}</span> : null}
+                </p>
+                {!a.isTest && <p className="break-words text-xs text-muted">{a.message}</p>}
+                <p className="text-xs text-muted">
+                  {a.count} time{a.count === 1 ? "" : "s"} · last {agoLabel(a.lastSeenAt, now)}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+        <TestAlertForm />
+      </section>
     </div>
   );
 }
