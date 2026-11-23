@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { hashPassword } from "@/lib/password";
 import { consumeToken, peekToken } from "@/lib/tokens";
+import { clearFailedSignIns } from "@/lib/sign-in-limit";
 
 export type ResetState = { error?: string };
 
@@ -20,13 +21,15 @@ export async function resetPasswordAction(_prev: ResetState, formData: FormData)
 
   const userId = await consumeToken(token, "reset_password");
   if (!userId) return { error: "That link has expired or was already used. Please ask for a new one." };
-  await db
+  const [updated] = await db
     .update(users)
     .set({
       passwordHash: await hashPassword(password),
       mustChangePassword: false,
       emailVerifiedAt: sql`coalesce(${users.emailVerifiedAt}, now())`, // they've proved they own the address
     })
-    .where(eq(users.id, userId));
+    .where(eq(users.id, userId))
+    .returning({ email: users.email });
+  if (updated) await clearFailedSignIns(updated.email); // they proved they own the address, so don't leave them locked out
   redirect("/login?reset=1");
 }

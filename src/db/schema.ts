@@ -270,3 +270,15 @@ export const stripeEvents = pgTable("stripe_events", {
   type: text("type").notNull(),
   processedAt: timestamp("processed_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** Failed (or in-progress) sign-in attempts, kept only long enough to slow down password guessing. Cleared on a successful sign-in and purged after a day. */
+export const loginAttempts = pgTable(
+  "login_attempts",
+  {
+    id: serial("id").primaryKey(),
+    email: text("email").notNull(), // as typed, lower-cased; may not belong to a real account
+    ip: text("ip"), // null when the address can't be read
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("login_attempts_email_idx").on(t.email, t.createdAt), index("login_attempts_ip_idx").on(t.ip, t.createdAt), index("login_attempts_created_idx").on(t.createdAt)],
+);
