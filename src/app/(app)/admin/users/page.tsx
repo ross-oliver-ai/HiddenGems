@@ -1,37 +1,80 @@
 import Link from "next/link";
-import { asc } from "drizzle-orm";
-import { db } from "@/db";
-import { users, type User } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
 import { ChangeEmailAdminForm, CreateUserForm, ResetPasswordForm } from "@/components/AdminForms";
-import { entitlement, fmtDate } from "@/lib/billing";
+import { entitlement } from "@/lib/billing";
+import { PlanBadge } from "@/components/PlanBadge";
+import { NO_ACTIVITY, PLAN_GROUP_LABEL, agoLabel, planGroup, type PlanGroup } from "@/lib/usage";
+import { loadActivity, loadUsers } from "@/lib/usage-data";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { endTrialNowAction, extendTrialAction, toggleDisabledAction, toggleExemptAction } from "./actions";
 
-export default async function AdminUsersPage() {
+const SHOWS = ["all", "trial", "paid", "failed", "readonly", "free", "unconfirmed", "noitems"] as const;
+type Show = (typeof SHOWS)[number];
+const SHOW_LABEL: Record<Show, string> = { all: "All", ...PLAN_GROUP_LABEL, unconfirmed: "Not confirmed", noitems: "No items yet" };
+
+export default async function AdminUsersPage({ searchParams }: { searchParams: Promise<{ show?: string }> }) {
   const admin = await requireAdmin();
-  const all = await db.select().from(users).orderBy(asc(users.createdAt));
+  const sp = await searchParams;
+  const show: Show = (SHOWS as readonly string[]).includes(sp.show ?? "") ? (sp.show as Show) : "all";
+  const now = new Date();
+  const [everyone, activity] = await Promise.all([loadUsers(), loadActivity()]);
+  everyone.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id - a.id); // newest first
+  const sellers = everyone.filter((u) => u.role !== "admin");
+  const matches = (u: (typeof everyone)[number], s: Show) =>
+    s === "all" ? true
+    : u.role === "admin" ? false
+    : s === "unconfirmed" ? !u.emailVerifiedAt
+    : s === "noitems" ? (activity.get(u.id) ?? NO_ACTIVITY).items === 0
+    : planGroup(u, now) === (s as PlanGroup);
+  const all = everyone.filter((u) => matches(u, show));
   return (
     <div className="space-y-4">
       <div>
-        <Link href="/settings" className="text-sm font-bold text-primary">← Settings</Link>
+        <Link href="/admin" className="text-sm font-bold text-primary">← Overview</Link>
         <h1 className="mt-1 text-2xl font-extrabold tracking-tight">Users</h1>
+        <p className="text-sm text-muted">Newest first.</p>
       </div>
 
-      <section className="card space-y-3">
-        <h2 className="font-extrabold">Add a user</h2>
-        <CreateUserForm />
-      </section>
+      <nav aria-label="Show" className="flex flex-wrap gap-2" data-user-filters>
+        {SHOWS.map((s) => {
+          const n = s === "all" ? everyone.length : sellers.filter((u) => matches(u, s)).length;
+          const on = s === show;
+          return (
+            <Link
+              key={s}
+              href={s === "all" ? "/admin/users" : `/admin/users?show=${s}`}
+              aria-current={on ? "page" : undefined}
+              className={`rounded-full border px-3 py-1.5 text-xs font-bold ${on ? "border-primary bg-primary text-primary-contrast" : "border-border bg-surface text-muted"}`}
+            >
+              {SHOW_LABEL[s]} {n}
+            </Link>
+          );
+        })}
+      </nav>
+
+      <details className="card" data-add-user>
+        <summary className="cursor-pointer list-none font-extrabold">Add a user <span aria-hidden className="text-primary">+</span></summary>
+        <div className="mt-3">
+          <CreateUserForm />
+        </div>
+      </details>
 
       <section className="space-y-3">
+        {all.length === 0 && <p className="card text-center text-muted">No one matches.</p>}
         {all.map((u) => {
-          const state = entitlement(u, new Date(), true).state;
+          const state = entitlement(u, now, true).state;
+          const act = activity.get(u.id) ?? NO_ACTIVITY;
           return (
           <div key={u.id} className="card space-y-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="truncate font-extrabold">{u.name}</p>
                 <p className="truncate text-sm text-muted">{u.email}</p>
+                {u.role !== "admin" && (
+                  <p className="mt-1 text-xs text-muted">
+                    Joined {agoLabel(u.createdAt, now)} · {act.items === 0 ? "no items yet" : `${act.items} item${act.items === 1 ? "" : "s"}, active ${agoLabel(act.lastActive, now)}`}{u.emailVerifiedAt ? "" : " · email not confirmed"}
+                  </p>
+                )}
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1 text-xs font-bold">
                 <span className="rounded-full bg-primary-soft px-2.5 py-1 text-primary">{u.role === "admin" ? "Admin" : "Seller"}</span>
@@ -77,21 +120,4 @@ export default async function AdminUsersPage() {
       </section>
     </div>
   );
-}
-
-function PlanBadge({ user }: { user: User }) {
-  const ent = entitlement(user, new Date(), true); // always show what the plan would be, even before billing is switched on
-  let label: string;
-  let tone = "bg-primary-soft text-primary";
-  if (ent.state === "exempt") label = user.role === "admin" ? "No billing" : "Free forever";
-  else if (ent.state === "subscribed") label = ent.endsOn ? `Paid to ${fmtDate(ent.endsOn)}` : "Subscribed";
-  else if (ent.state === "past_due") {
-    label = "Payment failed";
-    tone = "bg-warning/15 text-warning";
-  } else if (ent.state === "trial") label = `Trial: ${ent.daysLeft}d left`;
-  else {
-    label = "Read-only";
-    tone = "bg-danger/10 text-danger";
-  }
-  return <span className={`rounded-full px-2.5 py-1 ${tone}`}>{label}</span>;
 }
