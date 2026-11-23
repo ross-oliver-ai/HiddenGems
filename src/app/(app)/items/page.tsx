@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { listings, platforms } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { daysBetween, money, todayLondon } from "@/lib/format";
-import { FILTERS, PAGE_SIZE, isStale, itemProfit, parseShowCount } from "@/lib/items";
+import { FILTERS, PAGE_SIZE, isStale, itemProfit, parseShowCount, waitingLabel } from "@/lib/items";
 import { StatusPill } from "@/components/StatusPill";
 import { SearchBox } from "@/components/SearchBox";
 import { SendList } from "@/components/SendList";
@@ -59,7 +59,7 @@ export default async function ItemsPage({ searchParams }: { searchParams: Promis
     );
   }
 
-  const { rows, total } = await timed("Items and count", () => itemList({ userId: user.id, statuses: filter.statuses, term, show }));
+  const { rows, total } = await timed("Items and count", () => itemList({ userId: user.id, statuses: filter.statuses, term, show, order: filter.order }));
 
   // Live platforms for the listed items on this page
   const listedIds = rows.filter((r) => r.item.status === "listed").map((r) => r.item.id);
@@ -121,6 +121,11 @@ export default async function ItemsPage({ searchParams }: { searchParams: Promis
                       {profit !== null && (
                         <span className={`font-extrabold ${profit >= 0 ? "text-success" : "text-danger"}`}>
                           {profit >= 0 ? "+" : "−"}{money(Math.abs(profit))}
+                        </span>
+                      )}
+                      {item.status === "posted" && item.postedAt && (
+                        <span className="rounded-full bg-warning/15 px-2 py-0.5 text-xs font-extrabold text-warning">
+                          {waitingLabel(daysBetween(item.postedAt))}
                         </span>
                       )}
                       {stale && item.listedAt && (

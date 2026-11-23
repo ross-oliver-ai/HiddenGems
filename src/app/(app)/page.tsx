@@ -21,6 +21,7 @@ export default async function HomePage() {
   const toList = get("bought")?.n ?? 0;
   const listed = get("listed")?.n ?? 0;
   const toPost = get("sold")?.n ?? 0;
+  const waiting = get("posted")?.n ?? 0;
   const stockValue = Number(get("bought")?.cost ?? 0) + Number(get("listed")?.cost ?? 0);
 
   const listedRows = await db
@@ -70,6 +71,7 @@ export default async function HomePage() {
         {tile("To list", toList, "/items?f=bought", toList > 0)}
         {tile("Listed now", listed, "/items?f=listed")}
         {tile("To send", toPost, "/items?f=send", toPost > 0)}
+        {tile("Waiting for money", waiting, "/items?f=waiting", waiting > 0)}
         {tile("Stock value (at cost)", money(stockValue), "/items?f=stock")}
       </div>
 
@@ -79,7 +81,7 @@ export default async function HomePage() {
         </Link>
       )}
 
-      {toList + listed + toPost === 0 && (
+      {toList + listed + toPost + waiting === 0 && (
         <div className="card space-y-3 text-center">
           <p className="font-bold">Nothing in stock yet</p>
           <Link href="/items/new" className="btn">Add your first find</Link>

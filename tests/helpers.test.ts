@@ -1,7 +1,7 @@
 // Small pure helpers: item profit, money parsing, dates, goal pro-rating and reporting periods.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { itemProfit, isStale } from "@/lib/items";
+import { itemProfit, isStale, waitingLabel } from "@/lib/items";
 import { parseMoney, parseOptionalMoney, daysBetween, money, percent } from "@/lib/format";
 import { prorateGoal, resolvePeriod, bucketKey, listBuckets, addDays } from "@/lib/periods";
 
@@ -190,5 +190,13 @@ describe("parseOptionalMoney()", () => {
   it("refuses something typed that isn't an amount, rather than silently making it 0", () => {
     assert.equal(parseOptionalMoney("abc"), null);
     assert.equal(parseOptionalMoney("-3"), null);
+  });
+});
+
+describe("waitingLabel()", () => {
+  it("says how long a posted item has been waiting for payment", () => {
+    assert.equal(waitingLabel(0), "Posted today");
+    assert.equal(waitingLabel(1), "Waiting 1 day");
+    assert.equal(waitingLabel(9), "Waiting 9 days");
   });
 });
