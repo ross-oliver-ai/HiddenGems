@@ -106,6 +106,10 @@ export default async function SettingsPage() {
       {user.role === "admin" && (
         <>
           <SettingsGroup>Admin</SettingsGroup>
+          <Link href="/admin" className="card flex items-center justify-between font-extrabold">
+            Overview
+            <span aria-hidden className="text-primary">→</span>
+          </Link>
           <Link href="/admin/users" className="card flex items-center justify-between font-extrabold">
             Manage users
             <span aria-hidden className="text-primary">→</span>

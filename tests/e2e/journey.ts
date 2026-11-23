@@ -48,12 +48,14 @@ async function main() {
   const hider = await mk("hider@example.com", 20);
   const guesser = await mk("guesser@example.com", 20);
   await mk("forgetful@example.com", 20);
+  const adminUser = await mk("admin@example.com", 20);
   const leaver = await mk("leaver@example.com", 20);
   await dbm.db.insert(s.items).values({ userId: leaver.id, name: "Leaver's scarf", status: "bought", boughtAt: "2026-01-01", buyPrice: "3.00" });
   const old = await mk("old@example.com", 20); // stands in for an account that existed before the checklist: the migration hid it
   await dbm.db.insert(s.items).values({ userId: locked.id, name: "Locked user coat", status: "bought", boughtAt: "2026-01-01", buyPrice: "3.00" });
   const pool = new Pool({ connectionString: url, max: 1 });
   await pool.query("update users set checklist_hidden = true where id = $1", [old.id]);
+  await pool.query("update users set role = 'admin' where id = $1", [adminUser.id]);
 
   await waitForServer();
   const browser = await chromium.launch();
@@ -465,6 +467,33 @@ async function main() {
     await lv.page.goto(`${BASE}/items`); await lv.page.waitForLoadState();
     check("...and they're signed out", lv.page.url().includes("/login"), lv.page.url());
     await lv.ctx.close();
+
+    // --- The admin overview and Users list ---
+    const sellerTry = await signIn("trial@example.com");
+    await sellerTry.page.goto(`${BASE}/admin`);
+    await sellerTry.page.waitForURL(`${BASE}/`, { timeout: 10_000 }).catch(() => {}); // the redirect happens just after the loading placeholder
+    check("a seller who opens the admin overview is sent back to Home", !sellerTry.page.url().includes("/admin") && !(await body(sellerTry.page)).includes("Trials ending"), sellerTry.page.url());
+    await sellerTry.ctx.close();
+    const ad = await signIn("admin@example.com");
+    await ad.page.goto(`${BASE}/settings`);
+    const adminLinks = await ad.page.locator("a[href='/admin'], a[href='/admin/users'], a[href='/admin/waitlist']").allInnerTexts();
+    check("an admin's Settings has an Admin group with Overview, Manage users and Waitlist", (await ad.page.locator("[data-settings-group] h2").allInnerTexts()).map((t) => t.trim().toLowerCase()).includes("admin") && adminLinks.map((t) => t.replace("→", "").trim()).join("|") === "Overview|Manage users|Waitlist", adminLinks.join("|"));
+    await ad.page.goto(`${BASE}/admin`);
+    await ad.page.getByText("Sign-ups").first().waitFor({ timeout: 15_000 });
+    const ov = await body(ad.page);
+    const sellerCount = Number((await pool.query("select count(*) n from users where role <> 'admin'")).rows[0].n);
+    check("the Overview's account count is everyone except admins", new RegExp(`${sellerCount}\\s*accounts`).test(ov), ov.slice(0, 300));
+    check("...and shows the headings for sign-ups, use, plans, trial to paid, trials ending and newest sign-ups", ["Sign-ups", "Are they using it?", "Plans", "Trial to paid", "Trials ending within 7 days", "Newest sign-ups", "Across the whole app"].every((h) => ov.toLowerCase().includes(h.toLowerCase())), ov.slice(0, 200));
+    check("...names the account that has used the app and the locked account in the lists", ov.includes("locked@example.com") || ov.includes("trial@example.com"));
+    await ad.page.goto(`${BASE}/admin/users?show=readonly`);
+    await ad.page.getByText("Newest first").waitFor({ timeout: 15_000 });
+    const ro = await body(ad.page);
+    check("Users filtered to Read-only lists the locked account and not the one on trial", ro.includes("locked@example.com") && !ro.includes("hider@example.com"), ro.slice(0, 300));
+    check("...with filter chips and a count on each", (await ad.page.locator("[data-user-filters] a").count()) === 8 && (await ad.page.locator("[data-user-filters] a[aria-current=page]").innerText()).includes("Read-only"));
+    check("...and 'Add a user' is folded away until it's tapped, so the list comes first", (await ad.page.locator("[data-add-user][open]").count()) === 0 && !(await ad.page.locator("[data-add-user] #name").first().isVisible().catch(() => false)));
+    await ad.page.goto(`${BASE}/admin/users?show=bogus`);
+    check("an unknown filter just shows everyone", (await ad.page.locator("[data-user-filters] a[aria-current=page]").innerText()).startsWith("All"));
+    await ad.ctx.close();
 
     // --- Signed out ---
     const anon = await browser.newContext(phone); const ap = await anon.newPage();
