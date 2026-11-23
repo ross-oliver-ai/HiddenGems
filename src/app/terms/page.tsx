@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SUPPORT_EMAIL } from "@/lib/contact";
 
 export const metadata: Metadata = { title: "Terms · Hidden Gems" };
 
@@ -50,6 +51,11 @@ export default function TermsPage() {
       <section className="space-y-2">
         <h2 className="text-lg font-extrabold">Fair use</h2>
         <p>Please don&apos;t misuse the service, try to break into other people&apos;s accounts, or overload it. We may close accounts that do.</p>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="text-lg font-extrabold">Contact</h2>
+        <p>Questions about these terms, or anything else? Email <a className="font-bold text-primary" href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.</p>
       </section>
     </main>
   );

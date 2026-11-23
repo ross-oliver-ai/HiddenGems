@@ -248,6 +248,15 @@ async function main() {
     check("'Undo sale' (after confirming) clears the sale and puts it back on sale on both platforms it was listed on (Vinted and eBay)", unsold2.status === "listed" && unsold2.sold_price === null && unsold2.sold_at === null && unsold2.fees === "0.00" && relive === 2, JSON.stringify([unsold2, relive]));
     await page.goto(`${BASE}/items/${boots2.id}`);
     check("a listed item has no Undo button", (await page.locator("button:has-text('Undo')").count()) === 0);
+    await page.goto(`${BASE}/settings`);
+    check("Settings lists 'Where from & categories' and a 'Help and feedback' link", (await body(page)).includes("Where from & categories") && (await page.locator("a[href='/help']").count()) === 1);
+    await page.click("a[href='/help']");
+    await page.waitForURL(/\/help$/);
+    await page.waitForSelector("text=How profit is worked out", { timeout: 15_000 }).catch(() => {}); // the page streams in after the loading placeholder
+    const helpText = await body(page);
+    check("the Help page explains the stages, profit, fees and Undo", ["How an item moves", "How profit is worked out", "Set your fees first", "Tapped the wrong button?"].every((t) => helpText.includes(t)), helpText.slice(0, 200));
+    check("...showing a pill for every status", (await page.locator("span.rounded-full:text-is('Sold, to send')").count()) === 1 && helpText.includes("Waiting for money"));
+    check("...with a Send feedback button that opens an email to hello@hiddengemsapp.co.uk", (await page.locator("a:has-text('Send feedback')").getAttribute("href")) === "mailto:hello@hiddengemsapp.co.uk?subject=Hidden%20Gems%20feedback");
 
     // settings pages open
     await page.goto(`${BASE}/settings`);
@@ -278,12 +287,24 @@ async function main() {
     check("...but can still see their items", (await body(lk.page)).includes("Locked user coat"));
     const lcsv = await lk.ctx.request.get(`${BASE}/reports/export`);
     check("...and still export their CSV", lcsv.status() === 200 && (await lcsv.text()).includes("Locked user coat"));
+    await lk.page.goto(`${BASE}/settings`);
+    check("an expired trial still sees the Help and feedback link in Settings", (await lk.page.locator("a[href='/help']").count()) === 1);
+    await lk.page.goto(`${BASE}/help`);
+    await lk.page.waitForSelector("text=How profit is worked out", { timeout: 15_000 }).catch(() => {});
+    const lhelp = await body(lk.page);
+    check("...and can open the Help page (it isn't blocked like adding is)", lk.page.url().endsWith("/help") && lhelp.includes("How profit is worked out"), lk.page.url());
     await lk.ctx.close();
 
     // --- Signed out ---
     const anon = await browser.newContext(phone); const ap = await anon.newPage();
     await ap.goto(`${BASE}/items`); await ap.waitForLoadState();
     check("signed-out visitors are sent to sign in", ap.url().includes("/login"), ap.url());
+    await ap.goto(`${BASE}/help`); await ap.waitForLoadState();
+    check("...and the Help page needs a sign-in too", ap.url().includes("/login"), ap.url());
+    await ap.goto(`${BASE}/terms`);
+    check("the terms give a contact email", (await body(ap)).includes("hello@hiddengemsapp.co.uk"));
+    await ap.goto(`${BASE}/privacy`);
+    check("...and so does the privacy notice", (await body(ap)).includes("hello@hiddengemsapp.co.uk"));
     await anon.close();
   } finally {
     await browser.close();
