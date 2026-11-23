@@ -5,7 +5,7 @@ import { LoginForm } from "./LoginForm";
 
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ verified?: string; reset?: string }> }) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ verified?: string; reset?: string; deleted?: string }> }) {
   const sp = await searchParams;
   return (
     <AuthShell
@@ -21,6 +21,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     >
       {sp.verified && <div className="mb-4"><Notice>Email confirmed! You can sign in now.</Notice></div>}
       {sp.reset && <div className="mb-4"><Notice>Password changed. Please sign in.</Notice></div>}
+      {sp.deleted && <div className="mb-4"><Notice>Your account and everything in it has been deleted.</Notice></div>}
       <LoginForm canReset={emailConfigured()} />
     </AuthShell>
   );

@@ -22,7 +22,7 @@ export default function PrivacyPage() {
         <h2 className="text-lg font-extrabold">Your account</h2>
         <p>
           If you create an account we store your name, your email address, a scrambled version of your password (never the password itself), your settings, and what you enter into the app,
-          such as items, prices, dates and photos. It&apos;s private to you. We use it only to run Hidden Gems for you, and we email you only to confirm your address, reset your password when you ask, and let you know when your free trial is about to end.
+          such as items, prices, dates and photos. It&apos;s private to you, with one exception: photos are stored at long, unguessable web addresses, so anyone who has a photo&apos;s exact link can open it, but nobody can browse or search for them. We use it only to run Hidden Gems for you, and we email you only to confirm your address, reset your password when you ask, and let you know when your free trial is about to end.
         </p>
       </section>
 
@@ -41,14 +41,14 @@ export default function PrivacyPage() {
       <section className="space-y-2">
         <h2 className="text-lg font-extrabold">How long we keep it</h2>
         <p>
-          Waitlist emails are kept until you&apos;re invited and have joined, or until you ask us to remove it. Account data is kept until you ask us to delete your account. If the trial doesn&apos;t go ahead, we&apos;ll delete the list.
+          Waitlist emails are kept until you&apos;re invited and have joined, or until you ask us to remove it. Account data is kept until you delete your account. If the trial doesn&apos;t go ahead, we&apos;ll delete the list.
         </p>
       </section>
 
       <section className="space-y-2">
         <h2 className="text-lg font-extrabold">Your rights</h2>
         <p>
-          You can ask to see, correct or delete your email at any time by emailing {SUPPORT_EMAIL} or replying to any email we send you. If you&apos;re unhappy with how we&apos;ve
+          Once you&apos;re signed in, Settings → Account lets you download everything you&apos;ve entered (spreadsheets plus links to your photos) and delete your account straight away, which permanently removes your data and photos and cancels any subscription. Stripe keeps its own payment records, as it is required to. You can also ask to see, correct or delete your details at any time by emailing {SUPPORT_EMAIL} or replying to any email we send you. If you&apos;re unhappy with how we&apos;ve
           handled it, you can complain to the Information Commissioner&apos;s Office (ico.org.uk).
         </p>
       </section>

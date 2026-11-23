@@ -24,7 +24,7 @@ export function formEncode(params: Record<string, Param>): string {
   return out.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join("&");
 }
 
-async function call<T>(method: "GET" | "POST", path: string, params: Record<string, Param> = {}): Promise<T> {
+async function call<T>(method: "GET" | "POST" | "DELETE", path: string, params: Record<string, Param> = {}): Promise<T> {
   const body = formEncode(params);
   const res = await fetch(`${base()}${path}${method === "GET" && body ? `?${body}` : ""}`, {
     method,
@@ -105,6 +105,16 @@ export function retrieveCheckoutSession(id: string) {
 
 export function retrieveSubscription(id: string) {
   return call<StripeSubscription>("GET", `/v1/subscriptions/${encodeURIComponent(id)}`);
+}
+
+/** Cancels a subscription straight away (used when someone deletes their account). One that Stripe no longer has counts as cancelled. */
+export async function cancelSubscription(id: string): Promise<void> {
+  try {
+    await call("DELETE", `/v1/subscriptions/${encodeURIComponent(id)}`);
+  } catch (e) {
+    if (e instanceof Error && /\(404\)/.test(e.message)) return;
+    throw e;
+  }
 }
 
 // ---- Webhook signature check (https://docs.stripe.com/webhooks#verify-manually) ----

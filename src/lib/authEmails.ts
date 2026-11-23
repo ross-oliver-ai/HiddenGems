@@ -78,3 +78,16 @@ export async function sendEmailChangedNotice(oldEmail: string, newEmail: string)
     }),
   );
 }
+
+/** Sent after an account has been deleted, as a record that it happened. */
+export async function sendAccountDeletedEmail(email: string, name: string): Promise<boolean> {
+  return sendEmail(
+    email,
+    "Your Hidden Gems account has been deleted",
+    emailLayout({
+      heading: `Goodbye, ${name.split(" ")[0] || "there"}`,
+      body: "Your Hidden Gems account, your items and your photos have been deleted, and any subscription has been cancelled. Nothing more will be charged.",
+      footer: "If you didn't do this, reply to this email straight away. You're welcome back any time with a new account.",
+    }),
+  );
+}

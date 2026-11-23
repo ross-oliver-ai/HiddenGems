@@ -61,9 +61,9 @@ export default async function HelpPage() {
       <section className="card space-y-2">
         <h2 className="font-extrabold">Keeping your own copy</h2>
         <p className="text-sm">
-          Reports has a button to download all your items as a spreadsheet (CSV). It works on every plan, even after your free trial ends.
+          Settings → Account has a button to download all your data (items, sales, fees, settings and links to your photos) as spreadsheets. Reports also has a button for just your items. Both work on every plan, even after your free trial ends. You can delete your account from the same place.
         </p>
-        <Link href="/reports" className="btn-soft w-full">Go to Reports</Link>
+        <Link href="/settings/account" className="btn-soft w-full">Go to Account</Link>
       </section>
 
       <section className="card space-y-2">

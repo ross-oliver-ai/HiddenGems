@@ -21,6 +21,17 @@ export default async function AccountPage() {
         <h2 className="font-extrabold">Change password</h2>
         <ChangePasswordForm />
       </section>
+
+      <section className="card space-y-3" data-your-data>
+        <h2 className="font-extrabold">Your data</h2>
+        <p className="text-sm text-muted">
+          Download everything you&apos;ve entered as spreadsheets (items, sales, fees, listings, settings and links to your photos). It works on every plan, even after your trial ends.
+        </p>
+        <a href="/settings/account/download" download className="btn-soft w-full text-center">Download all my data</a>
+        <div className="border-t border-border pt-3">
+          <Link href="/settings/account/delete" className="text-sm font-bold text-danger">Delete my account</Link>
+        </div>
+      </section>
     </div>
   );
 }

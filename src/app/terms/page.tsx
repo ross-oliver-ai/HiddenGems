@@ -23,7 +23,7 @@ export default function TermsPage() {
 
       <section className="space-y-2">
         <h2 className="text-lg font-extrabold">Your data</h2>
-        <p>What you enter is yours, and it&apos;s private to you. We don&apos;t sell it or share it. We&apos;ll keep it safe to the best of our ability, but please keep your own copy of anything important: the reports can be downloaded as a spreadsheet.</p>
+        <p>What you enter is yours, and it&apos;s private to you. We don&apos;t sell it or share it. We&apos;ll keep it safe to the best of our ability, but please keep your own copy of anything important: you can download everything as spreadsheets from Settings → Account, and delete your account there too.</p>
       </section>
 
       <section className="space-y-2">

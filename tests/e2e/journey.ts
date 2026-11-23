@@ -48,6 +48,8 @@ async function main() {
   const hider = await mk("hider@example.com", 20);
   const guesser = await mk("guesser@example.com", 20);
   await mk("forgetful@example.com", 20);
+  const leaver = await mk("leaver@example.com", 20);
+  await dbm.db.insert(s.items).values({ userId: leaver.id, name: "Leaver's scarf", status: "bought", boughtAt: "2026-01-01", buyPrice: "3.00" });
   const old = await mk("old@example.com", 20); // stands in for an account that existed before the checklist: the migration hid it
   await dbm.db.insert(s.items).values({ userId: locked.id, name: "Locked user coat", status: "bought", boughtAt: "2026-01-01", buyPrice: "3.00" });
   const pool = new Pool({ connectionString: url, max: 1 });
@@ -338,6 +340,18 @@ async function main() {
     await page.click("a[href='/settings/account']");
     await page.waitForURL(`${BASE}/settings/account`);
     check("Settings > Account opens with the email and password forms", (await page.locator("#new-email").count()) === 1 && (await page.locator("#current").count()) === 1);
+    check("...and a 'Your data' card with a download button and a delete link", (await page.locator("[data-your-data] a[href='/settings/account/download']").count()) === 1 && (await page.locator("[data-your-data] a[href='/settings/account/delete']").count()) === 1);
+    const zip = await ctx.request.get(`${BASE}/settings/account/download`);
+    const zipBytes = await zip.body();
+    check("the download is a zip file named for Hidden Gems", zip.status() === 200 && zip.headers()["content-type"] === "application/zip" && /hidden-gems-all-my-data-.*\.zip/.test(zip.headers()["content-disposition"] ?? "") && zipBytes.subarray(0, 2).toString() === "PK", String(zip.status()));
+    check("...and it holds the item I entered", zipBytes.includes(Buffer.from("items.csv")) && zipBytes.includes(Buffer.from("photos.csv")));
+    await page.goto(`${BASE}/settings`);
+    const groups = await page.locator("[data-settings-group] h2").allInnerTexts();
+    check("Settings has two labelled groups, 'Your app' then 'Your account' (no Admin group for a seller)", JSON.stringify(groups.map((g) => g.trim().toLowerCase())) === JSON.stringify(["your app", "your account"]), JSON.stringify(groups));
+    const topOf = async (sel: string) => (await page.locator(sel).first().boundingBox())?.y ?? -1;
+    const gTop = [await topOf("[data-settings-group] >> nth=0"), await topOf("[data-settings-group] >> nth=1")];
+    const order = { g: gTop, targets: await topOf("a[href='/settings/targets']"), account: await topOf("a[href='/settings/account']"), billing: await topOf("a[href='/billing']"), help: await topOf("a[href='/help']") };
+    check("...with Targets under 'Your app', and Account, Billing and Help under 'Your account'", order.targets > order.g[0] && order.targets < order.g[1] && order.account > order.g[1] && order.billing > order.g[1] && order.help > order.g[1], JSON.stringify(order));
     await ctx.close();
 
     // --- Isolation: another account can't open this item ---
@@ -425,6 +439,32 @@ async function main() {
     check("seven slips then the right password still signs in", !last.url.includes("/login"), last.url);
     for (let i = 0; i < 7; i++) last = await tryLogin("forgetful@example.com", `slip-again-${i}`);
     check("...and the slips were forgotten (seven more are still fine)", !last.text.includes("Too many"), last.text.slice(0, 120));
+
+    // --- Deleting an account: two steps, then it's all gone ---
+    const lv = await signIn("leaver@example.com");
+    await lv.page.goto(`${BASE}/settings/account/delete`);
+    const warn = await body(lv.page);
+    check("deleting starts with a warning page that says what goes and offers a download first", warn.includes("This can't be undone") && warn.includes("Download all my data") && warn.includes("Stripe keeps its own payment records"), warn.slice(0, 200));
+    check("...and nothing is deleted just by opening it", Number((await pool.query("select count(*) n from users where id=$1", [leaver.id])).rows[0].n) === 1);
+    await lv.page.click("[data-delete-continue]");
+    await lv.page.waitForURL(/\/delete\/confirm/);
+    await lv.page.fill("#delete-email", "someone-else@example.com"); await lv.page.fill("#delete-password", PASSWORD);
+    await lv.page.click("[data-delete-form] button[type=submit]");
+    await lv.page.waitForTimeout(1500);
+    check("a different email typed in is refused and nothing is deleted", (await body(lv.page)).toLowerCase().includes("email") && Number((await pool.query("select count(*) n from users where id=$1", [leaver.id])).rows[0].n) === 1);
+    await lv.page.fill("#delete-email", "leaver@example.com"); await lv.page.fill("#delete-password", "not-the-password");
+    await lv.page.click("[data-delete-form] button[type=submit]");
+    await lv.page.waitForTimeout(1500);
+    check("a wrong password is refused and nothing is deleted", Number((await pool.query("select count(*) n from users where id=$1", [leaver.id])).rows[0].n) === 1 && lv.page.url().includes("/delete/confirm"), lv.page.url());
+    await lv.page.fill("#delete-email", "LEAVER@example.com"); await lv.page.fill("#delete-password", PASSWORD);
+    await lv.page.click("[data-delete-form] button[type=submit]");
+    await lv.page.waitForURL(/\/login\?deleted=1/, { timeout: 20_000 }).catch(() => {});
+    const bye = await body(lv.page);
+    check("the right email (any capitals) and password delete it, sign out, and say so on the sign-in page", lv.page.url().includes("/login?deleted=1") && bye.includes("has been deleted"), lv.page.url());
+    check("...the account and its items are gone from the database", Number((await pool.query("select count(*) n from users where email=$1", ["leaver@example.com"])).rows[0].n) === 0 && Number((await pool.query("select count(*) n from items where user_id=$1", [leaver.id])).rows[0].n) === 0);
+    await lv.page.goto(`${BASE}/items`); await lv.page.waitForLoadState();
+    check("...and they're signed out", lv.page.url().includes("/login"), lv.page.url());
+    await lv.ctx.close();
 
     // --- Signed out ---
     const anon = await browser.newContext(phone); const ap = await anon.newPage();
