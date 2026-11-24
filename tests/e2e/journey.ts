@@ -61,14 +61,14 @@ async function main() {
   const browser = await chromium.launch();
   const phone = { viewport: { width: 390, height: 844 } };
 
-  async function signIn(email: string, extra: Record<string, unknown> = {}) {
+  async function signIn(email: string, extra: Record<string, unknown> = {}, landing = "/") {
     const ctx = await browser.newContext({ ...phone, ...extra });
     const page = await ctx.newPage();
     await page.goto(`${BASE}/login`);
     await page.fill("input[name=email]", email);
     await page.fill("input[name=password]", PASSWORD);
     await page.click("button[type=submit]");
-    await page.waitForURL(`${BASE}/`, { timeout: 30_000 });
+    await page.waitForURL(`${BASE}${landing}`, { timeout: 30_000 });
     return { ctx, page };
   }
   // Pages stream in behind a loading placeholder, so wait for the network to settle before reading the text
@@ -474,7 +474,9 @@ async function main() {
     await sellerTry.page.waitForURL(`${BASE}/`, { timeout: 10_000 }).catch(() => {}); // the redirect happens just after the loading placeholder
     check("a seller who opens the admin overview is sent back to Home", !sellerTry.page.url().includes("/admin") && !(await body(sellerTry.page)).includes("Trials ending"), sellerTry.page.url());
     await sellerTry.ctx.close();
-    const ad = await signIn("admin@example.com");
+    const ad = await signIn("admin@example.com", {}, "/admin"); // an admin lands on the Overview straight after signing in
+    await ad.page.getByText("Sign-ups").first().waitFor({ timeout: 15_000 });
+    check("an admin lands on the Overview after signing in", ad.page.url() === `${BASE}/admin` && (await ad.page.locator("[data-error-alerts]").count()) === 1, ad.page.url());
     await ad.page.goto(`${BASE}/settings`);
     const adminLinks = await ad.page.locator("a[href='/admin'], a[href='/admin/users'], a[href='/admin/waitlist']").allInnerTexts();
     check("an admin's Settings has an Admin group with Overview, Manage users and Waitlist", (await ad.page.locator("[data-settings-group] h2").allInnerTexts()).map((t) => t.trim().toLowerCase()).includes("admin") && adminLinks.map((t) => t.replace("→", "").trim()).join("|") === "Overview|Manage users|Waitlist", adminLinks.join("|"));

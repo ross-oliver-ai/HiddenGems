@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { hashPassword, verifyPassword } from "@/lib/password";
+import { landingPathFor } from "@/lib/landing";
 
 export type PasswordState = { error?: string; ok?: boolean };
 
@@ -38,6 +39,6 @@ export async function changePasswordAction(_prev: PasswordState, formData: FormD
     .set({ passwordHash: await hashPassword(parsed.data.next), mustChangePassword: false })
     .where(eq(users.id, user.id));
 
-  if (user.mustChangePassword) redirect("/");
+  if (user.mustChangePassword) redirect(landingPathFor(user.role));
   return { ok: true };
 }
