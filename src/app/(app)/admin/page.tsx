@@ -5,6 +5,7 @@ import { PLAN_GROUP_LABEL, agoLabel, computeUsage, type PlanGroup, type UsageSel
 import { loadActivity, loadUsers, waitingCount } from "@/lib/usage-data";
 import { alertRecipient, recentAlerts } from "@/lib/alerts";
 import { TestAlertForm } from "@/components/TestAlertForm";
+import { RefreshButton } from "@/components/RefreshButton";
 import { lastJobRun } from "@/lib/job-runs";
 import { DAILY_JOB, jobStatus } from "@/lib/job-status";
 
@@ -48,10 +49,13 @@ export default async function AdminOverviewPage() {
 
   return (
     <div className="space-y-3">
-      <div>
-        <Link href="/settings" className="text-sm font-bold text-primary">← Settings</Link>
-        <h1 className="mt-1 text-2xl font-extrabold tracking-tight">Overview</h1>
-        <p className="text-sm text-muted">Everyone except admins. &ldquo;Active&rdquo; means they added or changed an item.</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <Link href="/settings" className="text-sm font-bold text-primary">← Settings</Link>
+          <h1 className="mt-1 text-2xl font-extrabold tracking-tight">Overview</h1>
+          <p className="text-sm text-muted">Everyone except admins. &ldquo;Active&rdquo; means they added or changed an item.</p>
+        </div>
+        <RefreshButton label="Refresh the figures" />
       </div>
 
       <Heading>Sign-ups</Heading>

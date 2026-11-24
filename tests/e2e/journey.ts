@@ -480,6 +480,21 @@ async function main() {
     await ad.page.goto(`${BASE}/settings`);
     const adminLinks = await ad.page.locator("a[href='/admin'], a[href='/admin/users'], a[href='/admin/waitlist']").allInnerTexts();
     check("an admin's Settings has an Admin group with Overview, Manage users and Waitlist", (await ad.page.locator("[data-settings-group] h2").allInnerTexts()).map((t) => t.trim().toLowerCase()).includes("admin") && adminLinks.map((t) => t.replace("→", "").trim()).join("|") === "Overview|Manage users|Waitlist", adminLinks.join("|"));
+    // The refresh button re-reads the figures: add a waitlist entry behind the page's back and the count only changes after a tap
+    {
+      const waitN = async () => Number((await pool.query("select count(*) n from waitlist where invited_at is null")).rows[0].n);
+      const w0 = await waitN();
+      await ad.page.goto(`${BASE}/admin`);
+      await ad.page.getByText("Sign-ups").first().waitFor({ timeout: 15_000 });
+      check("the Overview has a refresh button", (await ad.page.locator("[data-refresh]").count()) === 1 && (await ad.page.locator("[data-refresh]").getAttribute("aria-label")) === "Refresh the figures");
+      await pool.query("insert into waitlist (email) values ('refresh-check@example.com')");
+      await ad.page.waitForTimeout(500);
+      check("...the figures do not change by themselves", new RegExp(`${w0}\\s*on the waitlist`).test(await body(ad.page)));
+      await ad.page.locator("[data-refresh]").click();
+      await ad.page.waitForFunction((n) => new RegExp(`${n}\\s*on the waitlist`).test(document.body.innerText), w0 + 1, { timeout: 15_000 }).catch(() => {});
+      check("...and tapping refresh brings in the new entry without leaving the page", new RegExp(`${w0 + 1}\\s*on the waitlist`).test(await body(ad.page)) && ad.page.url() === `${BASE}/admin`);
+      await pool.query("delete from waitlist where email = 'refresh-check@example.com'");
+    }
     await ad.page.goto(`${BASE}/admin`);
     await ad.page.getByText("Sign-ups").first().waitFor({ timeout: 15_000 });
     const ov = await body(ad.page);
