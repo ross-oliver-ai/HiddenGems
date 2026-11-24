@@ -4,7 +4,7 @@ A mobile-first web app for resellers: record what you buy, list, sell and post, 
 
 - **Live site:** https://www.hiddengemsapp.co.uk (the original `hidden-gems-seven.vercel.app` address still works)
 - **Repo:** `ross-oliver-ai/HiddenGems` (default branch `main`)
-- **Last updated:** 23 November 2026 (kept current with every change; see `CLAUDE.md`)
+- **Last updated:** 24 November 2026 (kept current with every change; see `CLAUDE.md`)
 
 > **If you only read one section, read [Current state](#1-current-state) and [Working notes](#14-working-notes-and-gotchas). Before changing any screen, also read [Screens that other things describe](#screens-that-other-things-describe).**
 
@@ -37,24 +37,24 @@ A mobile-first web app for resellers: record what you buy, list, sell and post, 
 | Core app (items, lifecycle, photos, reports, goals, CSV export, themes, PWA) | Built and in daily use |
 | Error alerts: an email to the owner when something breaks on the server, plus an admin "Send a test alert" button (PR #47) | Built and tested (unit tests, and a browser run that hits a deliberate crash). **Verified live (23 Nov 2026)**: the test alert arrived in the hello@ inbox within a minute. A real crash alert has not been seen yet, as nothing has broken |
 | Admin Overview with usage figures, and a filterable Users list (PR #46) | Built and tested in a phone-sized desktop browser. Overview seen working on the live site on a phone (23 Nov 2026) |
-| Account deletion, full data download, Settings grouped into Your app / Your account / Admin (PR #45) | Built and tested in a phone-sized desktop browser. **Verified live (23 Nov 2026)** with a real test account that had a photo: the data download zip was correct, deleting removed the account and the photo from Blob. Not yet checked: a test-mode Stripe subscription being cancelled on deletion |
+| Account deletion, full data download, Settings grouped into Your app / Your account / Admin (PR #45) | Built and tested in a phone-sized desktop browser. **Verified live (23 Nov 2026)** with a real test account that had a photo: the data download zip was correct, deleting removed the account and the photo from Blob. **Stripe cancellation verified (24 Nov 2026):** deleting a test account with an active sandbox subscription left it Cancelled in Stripe (the £3 payment stays, as it should), and on live Stripe deleting the real-payment test account sent `customer.subscription.deleted`, answered 200 |
 | Public landing page and waitlist | Live |
 | Self sign-up, email confirmation, password reset | Built; switched on with `SIGNUPS_OPEN=true` |
 | Email change (user and admin) | Built, tested live |
 | Free trial and read-only lock | Built, tested end to end, **on** |
-| Stripe subscriptions (£3/month) | Built, tested end to end in **Stripe sandbox (test mode)**. **Not yet on live Stripe keys** |
+| Stripe subscriptions (£3/month) | **Live since 24 Nov 2026** (live restricted key, live webhook, live Customer portal; billing is enforced). Checked with one real £3 payment: see [Going live with Stripe](#12-deploying-and-operating). Built and first tested end to end in the Stripe sandbox |
 | Custom domain | Live: `www.hiddengemsapp.co.uk` (DNS at Fasthosts, certificate by Vercel) |
 | Preview deployments | Off (Ignored Build Step = Only build production) |
 | Multi-platform selling (platforms, listings, sold on, handover) | Built (PR 2); existing items were copied across by migration `0007`. Fees and postage paid are built too (PR 3, below). Reports by platform and by handover method are built too (PR 4, below). Not yet verified on the live site |
 | Fees and postage paid (per-platform fee %, fees and postage on each sale, profit after both) | Built (PR 3). Not yet verified on the live site |
 | Loading placeholders and "Show more" on Items (PR #32) | Built. Not yet verified on the live site. Items load 50 at a time; an admin-only timing readout is there to find out why pages feel slow |
 | Automated tests | GitHub runs them on every pull request and on `main` (billing rules, report maths, migrations, a browser run through the core journey). See [Tests](#tests) |
-| Trial-reminder emails (daily cron) | Built and registered in Vercel (Active, 08:00 UTC). Each run is now recorded and shown on the admin Overview's "Daily job" card (PR #48); the first scheduled run has not been confirmed there yet |
-| Daily job status on the admin Overview (PR #48) | Built and tested (unit tests and the browser run). On the live site a manual Run from Vercel fills the card ("Ran today at 22:07 UTC", 23 Nov 2026). Not yet seen: the scheduled 08:00 run recording itself |
+| Trial-reminder emails (daily cron) | Built and registered in Vercel (Active, 08:00 UTC). Each run is now recorded and shown on the admin Overview's "Daily job" card (PR #48); the first scheduled run was confirmed there on 24 Nov 2026 ("Ran today at 08:47 UTC") |
+| Daily job status on the admin Overview (PR #48) | Built and tested (unit tests and the browser run). On the live site a manual Run from Vercel fills the card ("Ran today at 22:07 UTC", 23 Nov 2026). The scheduled run recorded itself too: "Ran today at 08:47 UTC" on 24 Nov 2026 (Hobby plan crons can start anywhere in the 08:00 hour) |
 
 **People and data.** The first testers (the owner's wife and a friend; the wife now uses the app from the new domain) are marked **"free forever"** (`billing_exempt`) and are never locked. The migration that shipped billing set `billing_exempt = true` for every account that existed at that moment. Admins are never billed either.
 
-**Before real customers pay** (see [Open items](#16-open-items-and-backlog)): live Stripe keys and webhook, business status and VAT, a professional review of the terms (including the 14-day refund promise), and a few housekeeping items.
+**Before real customers pay** (see [Open items](#16-open-items-and-backlog)): business status and VAT, a professional review of the terms (including the 14-day refund promise), and a few housekeeping items.
 
 ---
 
@@ -323,7 +323,7 @@ Trial end = `trial_ends_at`, or `created_at + TRIAL_DAYS` if that's null.
 - **Account deletion** cancels the Stripe subscription immediately (`DELETE /v1/subscriptions/{id}`, `cancelSubscription` in `src/lib/stripe.ts`) before anything is removed; the resulting `customer.subscription.deleted` webhook finds no account and is ignored. Stripe keeps the customer and payment records.
 - **Admin overrides:** make free forever, extend trial by 14 days (for trial or locked accounts), end trial now (for accounts on a trial).
 
-**Stripe setup actually used:** a Stripe **sandbox**, endpoint `https://www.hiddengemsapp.co.uk/api/stripe/webhook` with "Snapshot" payloads and the six events above; Customer portal enabled. The Stripe client is hand-written `fetch` code in `src/lib/stripe.ts` (form-encoded, nested params). `STRIPE_API_BASE` exists only so tests can point at a fake Stripe.
+**Stripe setup actually used:** **live mode since 24 Nov 2026** (the sandbox is still there for testing; switch the toggle in the dashboard). A live webhook destination at `https://www.hiddengemsapp.co.uk/api/stripe/webhook` with "Snapshot" payloads and the six events above (API version shown on it: `2026-11-18.endive`; the code reads the subscription renewal date from either the old or the new place, so it copes with both layouts). The API key is a **restricted** live key (`rk_live_…`) with **Write** on Checkout Sessions, Customer portal, Customers and Subscriptions and nothing else; a new kind of Stripe call needs its permission added to the key (Developers → API keys, editable without making a new key). The live Customer portal allows cancelling at the end of the period, changing the payment method and viewing invoices, with links to the terms and privacy pages. Public details: business name "Hidden Gems App" (shown on card statements as HIDDEN GEMS APP), support email hello@hiddengemsapp.co.uk. Radar fraud protection is the free Lite level; tax is handled manually (Stripe Tax is off, and the app sends no tax settings). There are no products in Stripe's catalogue because the £3 price is created inline at checkout. The Stripe client is hand-written `fetch` code in `src/lib/stripe.ts` (form-encoded, nested params). `STRIPE_API_BASE` exists only so tests can point at a fake Stripe.
 
 **Test cards (sandbox only):** `4242 4242 4242 4242` succeeds; `4000 0000 0000 0002` is declined; `4000 0025 0000 3155` asks for 3D Secure; any future expiry, any CVC.
 
@@ -370,7 +370,7 @@ Vercel calls it with `Authorization: Bearer $CRON_SECRET`; without the right sec
 | **Vercel** | Hosting, builds, env vars, cron, domains, Blob storage | vercel.com project settings |
 | **Railway** | Postgres database (use the **public** connection URL in `DATABASE_URL`) | railway.com |
 | **Vercel Blob** | Item photos (`items/<userId>/photo.jpg` with a random suffix) | Vercel → Storage |
-| **Stripe** | Subscriptions, Checkout, Customer portal, webhooks | dashboard.stripe.com (currently the **Sandbox**) |
+| **Stripe** | Subscriptions, Checkout, Customer portal, webhooks | dashboard.stripe.com (**live mode** since 24 Nov 2026; the Sandbox is a toggle away) |
 | **Resend** | Transactional email | resend.com |
 | **Fasthosts** | Domain registration and DNS for `hiddengemsapp.co.uk` (A record + `www` CNAME to Vercel; Resend records) | Fasthosts → Domain Names → Configure Advanced DNS |
 
@@ -394,8 +394,8 @@ Set in **Vercel → Settings → Environment Variables** (Production). Locally, 
 | `SIGN_IN_LIMIT` | optional | `off` turns sign-in rate limiting off without a code change (an emergency switch: set it in Vercel and redeploy if people are being locked out by mistake). Anything else, or unset, leaves it on |
 | `SIGNUPS_PER_DAY` | optional | Daily sign-up cap (default 100) |
 | `BILLING_ENABLED` | optional | `true` starts enforcing trials (needs both Stripe keys) |
-| `STRIPE_SECRET_KEY` | for billing | Test key now; live key at go-live |
-| `STRIPE_WEBHOOK_SECRET` | for billing | Signing secret of the webhook endpoint (different for test and live) |
+| `STRIPE_SECRET_KEY` | for billing | The live restricted key (`rk_live_…`, permissions in [Billing](#7-billing-free-trial-read-only-lock-stripe)); a sandbox key (`sk_test_…`) works for testing |
+| `STRIPE_WEBHOOK_SECRET` | for billing | Signing secret of the live webhook destination (the sandbox one is different) |
 | `STRIPE_PRICE_ID` | optional | A fixed Stripe Price; otherwise £3/month is created inline |
 | `CRON_SECRET` | for the cron job | Any long random string |
 | `TRIAL_DAYS`, `PRICE_PENCE` | optional | Trial length (1–365, default 30) and price in pence (default 300). Also changes the wording in the app and emails |
@@ -415,11 +415,13 @@ Set in **Vercel → Settings → Environment Variables** (Production). Locally, 
 
 **Domain.** Added in Vercel (apex and `www`); DNS at Fasthosts; HTTPS certificates are automatic and free. Sign-in cookies are per host, so people sign in once on a new domain, and anyone who installed the app from the old address should re-add it from the new one.
 
-**Going live with Stripe (checklist).**
-1. Switch the Stripe dashboard to live mode; create live API keys → `STRIPE_SECRET_KEY`.
-2. Create a **new live webhook destination** (same URL, same six events, Snapshot payloads); copy its **own** signing secret → `STRIPE_WEBHOOK_SECRET`.
-3. Configure the **Customer portal in live mode** too (sandbox settings don't carry over).
-4. Redeploy, then make one real £3 payment on your own card and refund it; check Billing, the webhook delivery (200), and cancel flow.
+**Going live with Stripe (done 24 Nov 2026; kept as the checklist for any repeat).**
+1. Delete any sandbox test accounts that ever subscribed (Manage users) **before** swapping keys: sandbox customer IDs don't exist in live, so checkout would fail for them, and deleting afterwards can't cancel their sandbox subscriptions.
+2. Activate the live Stripe account (business details, bank account, ID checks), then switch the dashboard from Sandbox to Live.
+3. Create the live API key (Developers → API keys) and the **live webhook destination** (same URL, same six events, Snapshot payloads); the signing secret is different from the sandbox one. Configure the **Customer portal in live mode** too (sandbox settings don't carry over) and the public details (business name, support email, terms and privacy links).
+4. In Vercel (Production) set `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`, make sure `STRIPE_PRICE_ID` is not set (sandbox price IDs don't exist in live) and `BILLING_ENABLED=true`, then **redeploy** (variable changes only reach new deployments).
+5. Test with one real £3 payment on your own card, then refund it. Done on 24 Nov 2026 with a fresh account: Checkout (Apple Pay) took the £3, the app unlocked on return, the webhook answered 200 for `checkout.session.completed`, `invoice.paid` and `customer.subscription.created`; cancelling in the portal showed "cancelled, usable until 24 December" and two `customer.subscription.updated` events answered 200; the payment was refunded from Stripe's Payments page (Stripe keeps its fee on a refunded payment, about 25p on £3); deleting the account sent `customer.subscription.deleted` (200) and the Overview's Error alerts stayed clear. Not tried live: a failed renewal (`invoice.payment_failed`, covered in the sandbox).
+**Backing out:** set `BILLING_ENABLED=false` and redeploy (billing goes off and nobody is locked), or put the sandbox keys back.
 
 **Rotating secrets.** Railway password: use **Regenerate** (Postgres service → Database → Config → Connection), never edit the password variable by hand (that changes only the variable, not the real password). Then copy the new `DATABASE_PUBLIC_URL` (the full `postgresql://user:password@host:port/db` string) into `DATABASE_URL` in Vercel and redeploy; the site can't reach its database in between, so do it quickly at a quiet time. Keep the URL out of chats and screenshots. Stripe or Resend keys → update in Vercel → redeploy.
 
@@ -540,6 +542,7 @@ When the **Help page**, **landing page**, **checklist captions** or **terms** ch
 - **Rate-limit counts** for emails use tokens created in the last hour, whether or not they were used.
 - **The daily job's "last ran" note.** The cron route writes it after each run, success or failure, and never lets the note itself break the job. A manual Run from Vercel counts as a run too, so a manual run can make a broken schedule look healthy for a day: the 26-hour rule is the safety net. Only the daily job is recorded; add a job name to `recordJobRun` when a second cron is added. The browser run calls the job with `CRON_SECRET` (default `x`; the CI workflow sets the same).
 - **Error alerts: what they do and don't cover.** `instrumentation.ts` (`onRequestError`) catches uncaught server errors only; an error the code catches and handles never reaches it, which is why the swallowed failures (Stripe webhook, checkout and so on) call `recordError` explicitly. Browser-side errors (a button that does nothing on someone's phone) are **not** captured. There is no friendly `error.tsx` page yet, so a crash still shows Next.js's default error page. Alerts are scrubbed on purpose: never add a stack trace, request body, query values or an email address to `recordError`'s output. `recordError` never throws, and a failed alert email is only logged (not re-reported, to avoid a loop). The one-email-per-hour rule is an atomic `UPDATE ... WHERE last_emailed_at IS NULL OR < cutoff`, so a burst can't double-send. If alerts ever flood, set `ALERTS=off` in Vercel and redeploy.
+- **Stripe: live and sandbox don't mix.** Customer, subscription and price IDs, API keys and webhook secrets are all separate between the two, so a sandbox ID stored on an account means nothing in live (the app would ask live Stripe for a customer it has never heard of). Only real accounts should exist while the live keys are in; clear out test accounts first (see the going-live list). The live key is restricted, so a Stripe call that fails with a permission error means the key needs that permission added; the failure shows up in Error alerts.
 - **Keep this README current.** Every change that affects what's described here updates the README in the same pull request; `CLAUDE.md` has the checklist, and each PR description says which sections changed (or "No README impact").
 - **Ways of working.** The owner is a product manager building this from a phone: changes are made by Claude (Claude Code) in a sandbox, opened as a pull request, and **merged only when the owner says "merge"**. Keep changes small, one PR per idea, with a plain-English description and what was tested. Don't add unrequested features; propose them and wait.
 
@@ -586,22 +589,23 @@ When the **Help page**, **landing page**, **checklist captions** or **terms** ch
 | #47 | Error alerts: uncaught server errors and deliberately-swallowed failures are recorded (scrubbed, no customer data) and emailed to the owner, once per problem per hour and at most 20 problems a day; Error alerts card and "Send a test alert" button on the admin Overview; daily job clears alerts older than 30 days. Migration `0012`. `ALERT_EMAIL` and `ALERTS=off` settings |
 | #48 | Daily job status: every run of the trial-reminder job is recorded (when, worked or failed, what it did) and shown on the admin Overview, with a warning if it hasn't run for over 26 hours. Migration `0013` |
 | Launch prep | Domain `hiddengemsapp.co.uk`, `APP_URL`, webhook moved to the new domain; preview builds switched off; database password rotated |
+| Live Stripe (24 Nov 2026) | Switched from the Stripe sandbox to live mode (restricted live key, live webhook, live Customer portal) and proved it with a real £3 payment, a portal cancellation, a refund and an account deletion. No code change |
 
 ---
 
 ## 16. Open items and backlog
 
 **Before charging real customers**
-- [ ] Live Stripe keys, live webhook with its own secret, live Customer portal, a real £3 test payment and refund (see [Deploying](#12-deploying-and-operating)).
+- [x] Live Stripe keys, live webhook with its own secret, live Customer portal, a real £3 test payment, cancellation and refund (24 Nov 2026; see [Deploying](#12-deploying-and-operating)).
 - [ ] Business status (sole trader or limited company), VAT position, and a professional review of the terms and privacy notice (including the 14-day refund promise; add the business name; the contact email is now on both pages).
 - [x] `hello@hiddengemsapp.co.uk` receives and sends mail (23 Nov 2026): a Fasthosts forwarder sends it to the owner's Gmail, and Gmail's "Send mail as" replies from the hello@ address. The Help page, terms and privacy all send people there; nothing in the app checks it works, so send a test message now and then. If replies to other providers land in spam, send through Resend's SMTP (the domain is already verified there) instead of Gmail's.
 - [x] Nunito font (PR #42) looks good on a PC (23 Nov 2026).
 - [ ] Still to do: look at the app and landing page on an Android phone (no Android device available yet; low risk).
 - [x] Sign-in rate limiting works on the live site (23 Nov 2026): from a phone, the 9th wrong password for an account showed "wait 15 minutes", and signing in worked again once the wait was over (22:41). This also shows the visitor address is read correctly on Vercel. Note it locked the account's owner out too, as designed and listed under known gaps. Not yet tried: a password reset clearing the lockout, a different account signing in meanwhile, and a PC.
-- [x] Account deletion and the data download checked on the live site (PR #45, 23 Nov 2026): the zip was correct, the account was deleted and signed out, the photo was gone from Vercel Blob, and the sign-in page showed the banner (which stays on screen while the address still has the deleted flag, harmless). Still to do: with a test-mode subscription, confirm it shows as cancelled in the Stripe sandbox.
+- [x] Account deletion and the data download checked on the live site (PR #45, 23 Nov 2026): the zip was correct, the account was deleted and signed out, the photo was gone from Vercel Blob, and the sign-in page showed the banner (which stays on screen while the address still has the deleted flag, harmless). Stripe cancellation checked too (24 Nov 2026): the sandbox subscription of a deleted test account showed Cancelled with its £3 payment kept, and a live one was cancelled the same way.
 - [x] First-run checklist and spotlight tried on a real phone with a new account (23 Nov 2026): works.
 - [x] Error alerts proven live (23 Nov 2026): the test alert from the Overview arrived in the hello@ inbox within a minute, not in spam.
-- [ ] Confirm the daily job ran by itself: after PR #48 is live, check the Overview's Daily job card after the next 08:00 UTC (it should say "Ran today at 08:xx UTC"). Starting it with Vercel's Run button (Schedules → Cron Jobs) fills the card straight away but only proves the job works, not that the schedule fires (a manual run was done on 23 Nov 2026 at 22:07 UTC and the card showed it).
+- [x] (Confirmed 24 Nov 2026: the Overview showed "Ran today at 08:47 UTC".) Confirm the daily job ran by itself: after PR #48 is live, check the Overview's Daily job card after the next 08:00 UTC (it should say "Ran today at 08:xx UTC"). Starting it with Vercel's Run button (Schedules → Cron Jobs) fills the card straight away but only proves the job works, not that the schedule fires (a manual run was done on 23 Nov 2026 at 22:07 UTC and the card showed it).
 - [x] Housekeeping done: `SETUP_TOKEN` deleted; Vercel Ignored Build Step set to Only build production; Railway database password regenerated (22 Nov 2026) and `DATABASE_URL` in Vercel updated.
 - [x] A real photo upload from a phone works (23 Nov 2026).
 - [ ] Housekeeping still to do: confirm what the Postgres service's Backups tab shows (Hobby appears to have no volume backups).
