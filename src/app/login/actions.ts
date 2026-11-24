@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { createSession } from "@/lib/session";
+import { landingPathFor } from "@/lib/landing";
 import { dummyHash, verifyPassword } from "@/lib/password";
 import { beginSignIn, blockedMessage, finishSignIn, visitorIp } from "@/lib/sign-in-limit";
 
@@ -34,5 +35,5 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
   }
 
   await createSession(user.id);
-  redirect(user.mustChangePassword ? "/change-password" : "/");
+  redirect(user.mustChangePassword ? "/change-password" : landingPathFor(user.role));
 }
