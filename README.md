@@ -92,7 +92,7 @@ A mobile-first web app for resellers: record what you buy, list, sell and post, 
 - The admin account does not hold stock itself; it manages users.
 
 ### Public pages
-Landing page (`/welcome`, shown at `/` to signed-out visitors). It leads with a worked example of one sale (sold for, fees, postage, what I paid, "You keep"), then the purchase-to-payout journey using the real status pills, three feature blocks drawn as pictures of the real screens (several platforms with a price each, the To send list, Reports), a short "small things" grid, the goal confetti, a short note on why it was built, the price and trial, and a five-question FAQ. The price and trial length are read from `priceLabel()` and `trialDays()` (so `PRICE_PENCE` and `TRIAL_DAYS` change the page too), and the join box is the waitlist form or a sign-up button depending on `signupsOpen()`. Sign-in, sign-up, confirm email, forgot/reset password, terms, privacy.
+Landing page (`/welcome`, shown at `/` to signed-out visitors). It leads with a worked example of one sale (sold for, fees, postage, what I paid, "You keep"), then the purchase-to-payout journey using the real status pills, three feature blocks drawn as pictures of the real screens (several platforms with a price each, the To send list, Reports), a short "small things" grid, the goal confetti, a short note on why it was built, the price and trial, and a five-question FAQ. The price and trial length are read from `priceLabel()` and `trialDays()` (so `PRICE_PENCE` and `TRIAL_DAYS` change the page too), and the join box is the waitlist form or a sign-up button depending on `signupsOpen()`. Sign-in, sign-up, confirm email, forgot/reset password, terms, privacy. The terms and the privacy notice each open with who runs the service (the owner's name as a sole trader, postal address and the support email, from `src/lib/contact.ts`), as UK online-selling rules expect those details to be easy to find.
 
 ---
 
@@ -183,7 +183,7 @@ src/
     to-send.ts send-groups.ts        the To send worklist: the query, and the grouping (pure, no database)
     item-list.ts                     the Items list query: newest N matching items plus the total count (paging is in items.ts: PAGE_SIZE, parseShowCount)
     checklist-steps.ts checklist.ts  the first-run checklist: steps, spotlight captions (TOURS) and done-rules are pure; checklist.ts holds the queries
-    contact.ts help.ts               the support email and feedback link; the Help page's status descriptions
+    contact.ts help.ts               the support email and feedback link, and who runs the service (name and address shown on the terms and privacy pages); the Help page's status descriptions
     job-status.ts job-runs.ts        the daily job's "last ran" note: what the Overview says about it (pure), and the database read/write
     alert-rules.ts alerts.ts         error alerts: scrubbing, signatures and the limits (pure); recording, emailing and the admin list (database)
     timing.ts                        timed() notes how long a step took, per request (for the admin timing readout)
@@ -512,6 +512,7 @@ Several things in the app talk about screens, buttons and steps in words or poin
 | **The CSV export** (columns, where the button is; `itemsCsv` also feeds `items.csv` in the full download) | The Help page's "Keeping your own copy"; the landing FAQ ("read-only if you stop paying"); the terms ("download everything"); `tests/e2e/journey.ts` CSV checks |
 | **Price, trial length, what happens when the trial ends** | The landing page and billing page read `priceLabel()` / `trialDays()`, but the **terms** page and the **Help** page's trial section state them in words, so update those by hand; the landing FAQ; the billing page; the README Billing section |
 | **The support email** | One place: `SUPPORT_EMAIL` in `src/lib/contact.ts` (the Help page, terms and privacy read it). Check the new address actually receives mail |
+| **Who runs the service (name, trading status, postal address)** | `OPERATOR_NAME` and `OPERATOR_ADDRESS` in `src/lib/contact.ts`, shown in the "Who runs Hidden Gems" section at the top of the **terms** and the "Who is responsible for your data" section at the top of the **privacy notice**. Change the name or address there if the business status changes (for example to a limited company), and tell whoever reviews the terms |
 | **Settings: a row added, renamed or moved** | The Settings menu (`settings/page.tsx`: pick the right group, Your app or Your account) and README Settings bullet; the Help page and the checklist text that say "Settings, then Platforms & postage"; the journey's Settings checks |
 | **Filter chips or Home tiles** (names, what they show) | `FILTERS` in `src/lib/items.ts`, the Home tiles, the Help page's mention of "Waiting for money", the Items bullet in What the app does, the journey checks |
 | **The platforms, "Where from" or postal-service starter lists** (`src/lib/defaults.ts`) | The landing page's mentions of platforms and where things come from; the journey's starter-list check; existing accounts need a data migration (see `0009`), not just a new default |
@@ -590,6 +591,7 @@ When the **Help page**, **landing page**, **checklist captions** or **terms** ch
 | #48 | Daily job status: every run of the trial-reminder job is recorded (when, worked or failed, what it did) and shown on the admin Overview, with a warning if it hasn't run for over 26 hours. Migration `0013` |
 | Launch prep | Domain `hiddengemsapp.co.uk`, `APP_URL`, webhook moved to the new domain; preview builds switched off; database password rotated |
 | Live Stripe (24 Nov 2026) | Switched from the Stripe sandbox to live mode (restricted live key, live webhook, live Customer portal) and proved it with a real £3 payment, a portal cancellation, a refund and an account deletion. No code change |
+| #51 | "Who runs Hidden Gems" on the terms and "Who is responsible for your data" on the privacy notice: the owner's name, sole-trader status, postal address and the support email, held in `src/lib/contact.ts`. No migration |
 
 ---
 
@@ -597,7 +599,7 @@ When the **Help page**, **landing page**, **checklist captions** or **terms** ch
 
 **Before charging real customers**
 - [x] Live Stripe keys, live webhook with its own secret, live Customer portal, a real £3 test payment, cancellation and refund (24 Nov 2026; see [Deploying](#12-deploying-and-operating)).
-- [ ] Business status (sole trader or limited company), VAT position, and a professional review of the terms and privacy notice (including the 14-day refund promise; add the business name; the contact email is now on both pages).
+- [ ] Business status (sole trader or limited company), VAT position, and a professional review of the terms and privacy notice (including the 14-day refund promise; the owner's name (as a sole trader), address and the contact email are now on both pages, so ask the reviewer whether that wording is enough).
 - [x] `hello@hiddengemsapp.co.uk` receives and sends mail (23 Nov 2026): a Fasthosts forwarder sends it to the owner's Gmail, and Gmail's "Send mail as" replies from the hello@ address. The Help page, terms and privacy all send people there; nothing in the app checks it works, so send a test message now and then. If replies to other providers land in spam, send through Resend's SMTP (the domain is already verified there) instead of Gmail's.
 - [x] Nunito font (PR #42) looks good on a PC (23 Nov 2026).
 - [ ] Still to do: look at the app and landing page on an Android phone (no Android device available yet; low risk).

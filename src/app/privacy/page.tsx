@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SUPPORT_EMAIL } from "@/lib/contact";
+import { OPERATOR_ADDRESS, OPERATOR_NAME, SUPPORT_EMAIL } from "@/lib/contact";
 
 export const metadata: Metadata = { title: "Privacy notice · Hidden Gems" };
 
@@ -9,6 +9,14 @@ export default function PrivacyPage() {
     <main className="mx-auto w-full max-w-2xl space-y-5 px-5 py-8">
       <Link href="/" className="text-sm font-bold text-primary">← Hidden Gems</Link>
       <h1 className="text-3xl font-extrabold tracking-tight">Privacy notice</h1>
+
+      <section className="space-y-2" data-who-runs>
+        <h2 className="text-lg font-extrabold">Who is responsible for your data</h2>
+        <p>
+          {OPERATOR_NAME}, a sole trader trading as Hidden Gems, decides how your information is used and looks after it. Address: {OPERATOR_ADDRESS}. Email:{" "}
+          <a className="font-bold text-primary" href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
+        </p>
+      </section>
 
       <section className="space-y-2">
         <h2 className="text-lg font-extrabold">The waitlist</h2>

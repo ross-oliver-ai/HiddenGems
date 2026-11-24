@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SUPPORT_EMAIL } from "@/lib/contact";
+import { OPERATOR_ADDRESS, OPERATOR_NAME, SUPPORT_EMAIL } from "@/lib/contact";
 
 export const metadata: Metadata = { title: "Terms · Hidden Gems" };
 
@@ -10,6 +10,14 @@ export default function TermsPage() {
       <Link href="/" className="text-sm font-bold text-primary">← Hidden Gems</Link>
       <h1 className="text-3xl font-extrabold tracking-tight">Terms of use</h1>
       <p className="text-muted">A plain-English summary of how Hidden Gems works. Please read it before creating an account.</p>
+
+      <section className="space-y-2" data-who-runs>
+        <h2 className="text-lg font-extrabold">Who runs Hidden Gems</h2>
+        <p>
+          Hidden Gems is run by {OPERATOR_NAME}, a sole trader, trading as Hidden Gems. Address: {OPERATOR_ADDRESS}. Email:{" "}
+          <a className="font-bold text-primary" href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
+        </p>
+      </section>
 
       <section className="space-y-2">
         <h2 className="text-lg font-extrabold">What Hidden Gems is</h2>

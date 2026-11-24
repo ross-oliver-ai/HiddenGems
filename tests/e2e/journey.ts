@@ -544,6 +544,9 @@ async function main() {
     check("the terms give a contact email", (await body(ap)).includes("hello@hiddengemsapp.co.uk"));
     await ap.goto(`${BASE}/privacy`);
     check("...and so does the privacy notice", (await body(ap)).includes("hello@hiddengemsapp.co.uk"));
+    check("the privacy notice says who is responsible for the data (name and address)", (await body(ap)).includes("Ross Oliver") && (await body(ap)).includes("Cannon Field"));
+    await ap.goto(`${BASE}/terms`);
+    check("the terms say who runs the service (name, address and email)", (await body(ap)).includes("Ross Oliver") && (await body(ap)).includes("Cannon Field") && (await body(ap)).includes("sole trader"));
     await anon.close();
   } finally {
     await browser.close();
