@@ -98,9 +98,12 @@ export function buildPrompt(lists: { categories: string[]; conditions: string[];
     "Reply with ONLY a JSON object and no other text, with exactly these keys: name, brand, size, category, condition.",
     '- name: a short plain title of 2 to 6 words, colour first, then the brand only if you can read it, then what it is. Example: "Navy Barbour wax jacket".',
     "- brand: only if you can read it on a label, tag or logo. Never guess a brand from the style. Otherwise null.",
-    "- size: only if it is printed on a tag you can read, exactly as printed. Otherwise null.",
+    '- size: only if it is printed on a tag you can read. If the tag shows several sizes (for example IT 44 / UK 10 / EU 40), give the UK size on its own, like "UK 10". If there is no UK size, copy what is printed, like "44 / 10 USA". Otherwise null.',
     `- category: exactly one of ${cats}, or null if none fits.`,
     `- condition: exactly one of ${conds}, judged only from what you can see (use "New with tags" only if tags are attached), or null if you can't tell.`,
     "Use null for anything you are not sure about. Do not add commentary.",
   ].join("\n");
 }
+
+/** The name an item gets when it is saved before the AI has read the photo. The AI replaces it if it is still there. */
+export const UNTITLED_NAME = "Untitled item";

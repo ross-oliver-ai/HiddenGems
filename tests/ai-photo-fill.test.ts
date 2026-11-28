@@ -97,6 +97,12 @@ describe("buildPrompt()", () => {
     assert.match(p, /Never guess a brand/);
     assert.match(p, /The image is the item/);
   });
+  it("prefers the UK size when a tag shows several, and otherwise copies what is printed", () => {
+    const p = buildPrompt({ categories: [], conditions: CONDITIONS, hasTag: true });
+    assert.match(p, /give the UK size on its own, like "UK 10"/);
+    assert.match(p, /If there is no UK size, copy what is printed/);
+    assert.match(p, /never guess|Otherwise null/i);
+  });
   it("mentions the tag image only when there is one", () => {
     assert.match(buildPrompt({ categories: [], conditions: CONDITIONS, hasTag: true }), /second image is its tag/);
     assert.doesNotMatch(buildPrompt({ categories: [], conditions: CONDITIONS, hasTag: false }), /second image/);

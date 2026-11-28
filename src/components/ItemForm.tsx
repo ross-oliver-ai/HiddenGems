@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { createItemAction, updateItemAction, type ItemState } from "@/app/(app)/items/actions";
 import { SubmitButton } from "./SubmitButton";
 import { PhotoPicker } from "./PhotoPicker";
-import { AiSuggest } from "./AiSuggest";
+import { TagPhotoPicker } from "./TagPhotoPicker";
+import { AiSuggestStatus, useAiSuggest } from "./AiSuggest";
 import type { Suggestion } from "@/lib/ai-rules";
 import { ShopPicker } from "./ShopPicker";
 import { CONDITIONS } from "@/lib/items";
@@ -37,6 +38,9 @@ export type ItemFormValues = {
 
 type Opt = { id: number; name: string };
 
+/** The one-tap prices under "Paid (£)" on a new item */
+const QUICK_PRICES = [1, 2, 3, 5, 8, 10];
+
 export function ItemForm({
   mode,
   values,
@@ -52,25 +56,34 @@ export function ItemForm({
   categories: Opt[];
   postalServices?: Opt[];
   platforms?: Opt[];
-  /** Show "Suggest details from photo" (new items only; the admin has switched it on). */
+  /** The AI reads the photos by itself on new items (the admin has switched it on). */
   aiOffered?: boolean;
 }) {
   const [state, action] = useActionState<ItemState, FormData>(mode === "create" ? createItemAction : updateItemAction, {});
   const edit = mode === "edit";
   const formRef = useRef<HTMLFormElement>(null);
   const [photoBlob, setPhotoBlob] = useState<Blob | null>(null);
+  const [tagBlob, setTagBlob] = useState<Blob | null>(null);
   const [handover, setHandover] = useState<Handover | "">(values.handover ?? "");
+  const [buyPrice, setBuyPrice] = useState(values.buyPrice ?? "");
+  const tagInput = useRef<HTMLInputElement>(null);
+  const ai = !edit && aiOffered;
+  // What the AI last put in each box, so a later run (once the tag photo is added) can improve it unless the person has changed it
+  const aiPut = useRef<Record<string, string>>({});
 
-  /** Puts the AI's suggestions into the boxes that are still empty (never over something the person typed). Returns what it filled. */
+  /** Puts the AI's suggestions into boxes that are empty, or that still hold what the AI itself put there. Returns what it filled. */
   function applySuggestion(s: Suggestion): string[] {
     const form = formRef.current;
     if (!form) return [];
     const filled: string[] = [];
     const put = (field: string, label: string, value: string | null) => {
       const el = form.elements.namedItem(field);
-      if (!value || !(el instanceof HTMLInputElement || el instanceof HTMLSelectElement) || el.value) return;
+      if (!value || !(el instanceof HTMLInputElement || el instanceof HTMLSelectElement)) return;
+      if (el.value && el.value !== aiPut.current[field]) return;
       if (el instanceof HTMLSelectElement && !Array.from(el.options).some((o) => o.value === value)) return;
+      if (el.value === value) return;
       el.value = value;
+      aiPut.current[field] = value;
       filled.push(label);
     };
     put("name", "name", s.name);
@@ -81,26 +94,65 @@ export function ItemForm({
     return filled;
   }
 
+  const { working, note, retry } = useAiSuggest({ enabled: ai, photo: photoBlob, tag: tagBlob, onApply: applySuggestion });
+
+  // If Save is tapped while the AI is still reading, the server finishes the job afterwards. The tag photo travels with the form for that.
+  useEffect(() => {
+    const el = tagInput.current;
+    if (!el) return;
+    try {
+      const dt = new DataTransfer();
+      if (working && tagBlob) dt.items.add(new File([tagBlob], "tag.jpg", { type: "image/jpeg" }));
+      el.files = dt.files;
+    } catch {
+      /* older browsers: the server just reads the item photo */
+    }
+  }, [working, tagBlob]);
+
   return (
     <form ref={formRef} action={action} className="space-y-4">
       {edit && <input type="hidden" name="id" value={values.id} />}
-      <PhotoPicker initialUrl={values.photoUrl} onPhoto={setPhotoBlob} />
-      {!edit && aiOffered && <AiSuggest photo={photoBlob} onApply={applySuggestion} />}
+      {ai ? (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <PhotoPicker tile initialUrl={values.photoUrl} onPhoto={setPhotoBlob} />
+            <TagPhotoPicker tag={tagBlob} onTag={setTagBlob} />
+          </div>
+          <input type="hidden" name="aiPending" value={working ? "1" : ""} />
+          <input ref={tagInput} type="file" name="aiTag" className="hidden" tabIndex={-1} aria-hidden />
+          <AiSuggestStatus working={working} note={note} hasPhoto={photoBlob !== null} retry={retry} />
+        </>
+      ) : (
+        <PhotoPicker initialUrl={values.photoUrl} />
+      )}
+
+      <div>
+        <label className="label" htmlFor="buyPrice">Paid (£)</label>
+        <input id="buyPrice" name="buyPrice" required inputMode="decimal" value={buyPrice} onChange={(e) => setBuyPrice(e.target.value)} placeholder="0.00" className="field" />
+        {!edit && (
+          <div className="mt-2 flex flex-wrap gap-2" data-price-buttons>
+            {QUICK_PRICES.map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setBuyPrice(p.toFixed(2))}
+                className={`rounded-full px-4 py-2 text-sm font-bold ${Number(buyPrice) === p && buyPrice !== "" ? "bg-primary text-primary-contrast" : "bg-surface-2 text-muted"}`}
+              >
+                £{p}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div data-tour={edit ? undefined : "add-item"}>
         <label className="label" htmlFor="name">What is it?</label>
-        <input id="name" name="name" required maxLength={120} defaultValue={values.name} placeholder="e.g. Barbour wax jacket" className="field" autoComplete="off" />
+        <input id="name" name="name" required={!ai} maxLength={120} defaultValue={values.name} placeholder={ai ? "Filled in from the photo, or type it" : "e.g. Barbour wax jacket"} className="field" autoComplete="off" />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="label" htmlFor="buyPrice">Paid (£)</label>
-          <input id="buyPrice" name="buyPrice" required inputMode="decimal" defaultValue={values.buyPrice} placeholder="0.00" className="field" />
-        </div>
-        <div>
-          <label className="label" htmlFor="boughtAt">Date bought</label>
-          <input id="boughtAt" name="boughtAt" type="date" required defaultValue={values.boughtAt} className="field" />
-        </div>
+      <div>
+        <label className="label" htmlFor="boughtAt">Date bought</label>
+        <input id="boughtAt" name="boughtAt" type="date" required defaultValue={values.boughtAt} className="field" />
       </div>
 
       <div>

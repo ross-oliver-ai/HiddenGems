@@ -1,34 +1,42 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { shrinkPhoto } from "@/lib/shrink-photo";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Suggestion } from "@/lib/ai-rules";
 
+export type AiNote = { ok: boolean; text: string } | null;
+
 /**
- * "Suggest details from photo": sits under the photo on the Add item screen (only when the admin has switched it on).
- * Sends the item photo, and an optional photo of the tag, to the server, then asks the form to fill in the empty fields.
- * It only suggests: nothing is saved until the person taps Save.
+ * Reads the item photo (and the tag photo, once there is one) by itself as soon as it is added: no button.
+ * Adding the tag photo runs it again, so brand and size can be filled in. `onApply` puts the answer in the form and returns
+ * the names of the boxes it filled. Nothing is saved until the person taps Save.
  */
-export function AiSuggest({ photo, onApply }: { photo: Blob | null; onApply: (s: Suggestion) => string[] }) {
-  const [tag, setTag] = useState<Blob | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
-  const input = useRef<HTMLInputElement>(null);
+export function useAiSuggest({
+  enabled,
+  photo,
+  tag,
+  onApply,
+}: {
+  enabled: boolean;
+  photo: Blob | null;
+  tag: Blob | null;
+  onApply: (s: Suggestion) => string[];
+}) {
+  const [working, setWorking] = useState(false);
+  const [note, setNote] = useState<AiNote>(null);
+  const run = useRef(0);
+  const apply = useRef(onApply);
+  useEffect(() => {
+    apply.current = onApply;
+  });
 
-  async function onTag(file: File | undefined) {
-    if (!file) return;
-    try {
-      setTag(await shrinkPhoto(file, 1024));
+  const start = useCallback(async () => {
+    const mine = ++run.current;
+    if (!enabled || !photo) {
+      setWorking(false);
       setNote(null);
-    } catch {
-      setNote({ ok: false, text: "Couldn't read that photo. Try a different one." });
+      return;
     }
-    if (input.current) input.current.value = "";
-  }
-
-  async function suggest() {
-    if (!photo) return;
-    setBusy(true);
+    setWorking(true);
     setNote(null);
     try {
       const body = new FormData();
@@ -36,42 +44,45 @@ export function AiSuggest({ photo, onApply }: { photo: Blob | null; onApply: (s:
       if (tag) body.append("tag", new File([tag], "tag.jpg", { type: "image/jpeg" }));
       const res = await fetch("/api/ai/suggest", { method: "POST", body });
       const json = await res.json().catch(() => ({}));
+      if (mine !== run.current) return; // a newer photo has taken over
       if (!res.ok || !json.suggestion) {
         setNote({ ok: false, text: json.error ?? "Couldn't read that photo just now. You can fill the details in yourself." });
         return;
       }
-      const filled = onApply(json.suggestion as Suggestion);
+      const filled = apply.current(json.suggestion as Suggestion);
       setNote({
         ok: true,
         text: filled.length
           ? `Filled in the ${filled.join(", ")}. Please check ${filled.length === 1 ? "it" : "them"} before saving.`
-          : "Nothing new to fill in. The boxes already have something in them, or the photo didn't show enough.",
+          : "Nothing new to fill in. The photo didn't show enough, or the boxes already have something in them.",
       });
     } catch {
-      setNote({ ok: false, text: "Couldn't reach the server. You can fill the details in yourself." });
+      if (mine === run.current) setNote({ ok: false, text: "Couldn't reach the server. You can fill the details in yourself." });
     } finally {
-      setBusy(false);
+      if (mine === run.current) setWorking(false);
     }
-  }
+  }, [enabled, photo, tag]);
 
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- starts the request when a photo is added or changed
+    void start();
+  }, [start]);
+
+  return { working, note, retry: start };
+}
+
+/** The one line under the photos that says what the AI is doing. */
+export function AiSuggestStatus({ working, note, hasPhoto, retry }: { working: boolean; note: AiNote; hasPhoto: boolean; retry: () => void }) {
   return (
-    <div className="space-y-2 rounded-2xl border border-border bg-surface-2 p-3" data-ai-suggest>
-      <input ref={input} type="file" accept="image/*" className="hidden" onChange={(e) => onTag(e.target.files?.[0])} />
-      <div className="flex flex-wrap items-center gap-2">
-        <button type="button" onClick={suggest} disabled={!photo || busy} className="btn-soft">
-          {busy ? "Looking at the photo…" : "✨ Suggest details from photo"}
-        </button>
-        {photo && (
-          tag ? (
-            <button type="button" onClick={() => setTag(null)} className="text-sm font-bold text-danger">Remove tag photo</button>
-          ) : (
-            <button type="button" onClick={() => input.current?.click()} className="text-sm font-bold text-primary">+ Tag photo (helps with brand and size)</button>
-          )
-        )}
-      </div>
-      {tag && <p className="text-xs font-bold text-muted">Tag photo ready. It is only used for the suggestion and isn&rsquo;t saved.</p>}
-      {!photo && <p className="text-xs text-muted">Add a photo of the item first.</p>}
-      {note && <p role={note.ok ? "status" : "alert"} className={`text-sm font-semibold ${note.ok ? "text-success" : "text-danger"}`}>{note.text}</p>}
+    <div className="min-h-5 text-sm" data-ai-suggest data-ai-working={working ? "1" : "0"}>
+      {working && <p role="status" className="font-bold text-primary">✨ Reading the photo… you can carry on and save.</p>}
+      {!working && note && (
+        <p role={note.ok ? "status" : "alert"} className={`font-semibold ${note.ok ? "text-success" : "text-danger"}`}>
+          {note.text}{" "}
+          {!note.ok && hasPhoto && <button type="button" onClick={retry} className="font-bold text-primary underline">Try again</button>}
+        </p>
+      )}
+      {!working && !note && !hasPhoto && <p className="text-muted">✨ Add the item photo and the details fill themselves in. A tag photo helps with brand and size.</p>}
     </div>
   );
 }

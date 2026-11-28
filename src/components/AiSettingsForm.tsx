@@ -13,8 +13,8 @@ export function AiSettingsForm({ settings }: { settings: AiSettings }) {
       <label className="flex items-start gap-3">
         <input type="checkbox" name="enabled" defaultChecked={settings.enabled} className="mt-1 h-5 w-5 shrink-0" />
         <span>
-          <span className="block font-extrabold">Switch on &ldquo;Suggest details from photo&rdquo;</span>
-          <span className="block text-sm text-muted">When off, the button doesn&rsquo;t appear on Add item and nothing is sent to the AI. This is the emergency stop.</span>
+          <span className="block font-extrabold">Switch on AI photo fill</span>
+          <span className="block text-sm text-muted">When off, Add item has no tag tile and nothing is sent to the AI. This is the emergency stop.</span>
         </span>
       </label>
 
