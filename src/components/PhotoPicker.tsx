@@ -1,22 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { shrinkPhoto } from "@/lib/shrink-photo";
 
-const MAX_SIDE = 1280;
-
-async function shrink(file: File): Promise<Blob> {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  return new Promise((resolve, reject) =>
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("resize failed"))), "image/jpeg", 0.82),
-  );
-}
-
-export function PhotoPicker({ initialUrl }: { initialUrl?: string | null }) {
+export function PhotoPicker({ initialUrl, onPhoto }: { initialUrl?: string | null; /** Called with the shrunk photo once it is added, and with null when it is removed (used by "Suggest details"). */ onPhoto?: (photo: Blob | null) => void }) {
   const [url, setUrl] = useState(initialUrl ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -27,7 +14,7 @@ export function PhotoPicker({ initialUrl }: { initialUrl?: string | null }) {
     setError("");
     setBusy(true);
     try {
-      const small = await shrink(file).catch(() => {
+      const small = await shrinkPhoto(file).catch(() => {
         throw new Error("Couldn't read that photo. Try a different one (JPEG or PNG).");
       });
       const body = new FormData();
@@ -36,6 +23,7 @@ export function PhotoPicker({ initialUrl }: { initialUrl?: string | null }) {
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error ?? "Upload failed.");
       setUrl(json.url);
+      onPhoto?.(small);
     } catch (e) {
       setError(e instanceof Error && e.message ? e.message : "Couldn't add that photo.");
     } finally {
@@ -67,7 +55,7 @@ export function PhotoPicker({ initialUrl }: { initialUrl?: string | null }) {
         <div className="text-sm">
           <p className="font-bold">{url ? "Photo added" : "Photo (optional)"}</p>
           {url && (
-            <button type="button" onClick={() => setUrl("")} className="font-bold text-danger">Remove</button>
+            <button type="button" onClick={() => { setUrl(""); onPhoto?.(null); }} className="font-bold text-danger">Remove</button>
           )}
           {error && <p role="alert" className="mt-1 font-semibold text-danger">{error}</p>}
         </div>

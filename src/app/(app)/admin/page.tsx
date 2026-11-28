@@ -8,6 +8,8 @@ import { TestAlertForm } from "@/components/TestAlertForm";
 import { RefreshButton } from "@/components/RefreshButton";
 import { lastJobRun } from "@/lib/job-runs";
 import { DAILY_JOB, jobStatus } from "@/lib/job-status";
+import { aiKeyPresent, aiMonthSummary, getAiSettings } from "@/lib/ai-service";
+import { microUsdToPounds, poundsLabel } from "@/lib/ai-pricing";
 
 function Stat({ value, label, href }: { value: string | number; label: string; href?: string }) {
   const body = (
@@ -41,7 +43,7 @@ function Person({ s, now, extra }: { s: UsageSeller; now: Date; extra?: string }
 export default async function AdminOverviewPage() {
   await requireAdmin();
   const now = new Date();
-  const [users, activity, waiting, alerts, jobRow] = await Promise.all([loadUsers(), loadActivity(), waitingCount(), recentAlerts(), lastJobRun(DAILY_JOB)]);
+  const [users, activity, waiting, alerts, jobRow, aiSettings, aiMonth] = await Promise.all([loadUsers(), loadActivity(), waitingCount(), recentAlerts(), lastJobRun(DAILY_JOB), getAiSettings(), aiMonthSummary()]);
   const u = computeUsage(users, activity, now);
   const job = jobStatus(jobRow, now);
   const conv = u.trials.ended === 0 ? null : percent((u.trials.subscribed / u.trials.ended) * 100);
@@ -114,6 +116,12 @@ export default async function AdminOverviewPage() {
         <Stat value={u.totals.sales30} label="items sold in the last 30 days" />
         {waiting !== null && <Stat value={waiting} label="on the waitlist, not yet invited" href="/admin/waitlist" />}
       </div>
+
+      <Heading>AI photo fill</Heading>
+      <Link href="/admin/ai" className="card block space-y-1" data-ai-overview>
+        <p className="text-sm font-bold">{aiSettings.enabled && aiKeyPresent() ? "✅ On" : aiSettings.enabled ? "⚠️ On, but no key on the server" : "Off"}</p>
+        <p className="text-sm text-muted">{aiMonth.requests} suggestion{aiMonth.requests === 1 ? "" : "s"} this month, about {poundsLabel(microUsdToPounds(aiMonth.costMicroUsd))} of £{aiSettings.monthlyBudgetPounds}. Tap to change the settings.</p>
+      </Link>
 
       <Heading>Daily job</Heading>
       <section className="card space-y-1" data-daily-job={job.state}>

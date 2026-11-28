@@ -1,9 +1,11 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { createItemAction, updateItemAction, type ItemState } from "@/app/(app)/items/actions";
 import { SubmitButton } from "./SubmitButton";
 import { PhotoPicker } from "./PhotoPicker";
+import { AiSuggest } from "./AiSuggest";
+import type { Suggestion } from "@/lib/ai-rules";
 import { ShopPicker } from "./ShopPicker";
 import { CONDITIONS } from "@/lib/items";
 import { HANDOVERS, HANDOVER_LABEL } from "@/lib/listing-labels";
@@ -42,6 +44,7 @@ export function ItemForm({
   categories,
   postalServices = [],
   platforms = [],
+  aiOffered = false,
 }: {
   mode: "create" | "edit";
   values: ItemFormValues;
@@ -49,14 +52,40 @@ export function ItemForm({
   categories: Opt[];
   postalServices?: Opt[];
   platforms?: Opt[];
+  /** Show "Suggest details from photo" (new items only; the admin has switched it on). */
+  aiOffered?: boolean;
 }) {
   const [state, action] = useActionState<ItemState, FormData>(mode === "create" ? createItemAction : updateItemAction, {});
   const edit = mode === "edit";
+  const formRef = useRef<HTMLFormElement>(null);
+  const [photoBlob, setPhotoBlob] = useState<Blob | null>(null);
   const [handover, setHandover] = useState<Handover | "">(values.handover ?? "");
+
+  /** Puts the AI's suggestions into the boxes that are still empty (never over something the person typed). Returns what it filled. */
+  function applySuggestion(s: Suggestion): string[] {
+    const form = formRef.current;
+    if (!form) return [];
+    const filled: string[] = [];
+    const put = (field: string, label: string, value: string | null) => {
+      const el = form.elements.namedItem(field);
+      if (!value || !(el instanceof HTMLInputElement || el instanceof HTMLSelectElement) || el.value) return;
+      if (el instanceof HTMLSelectElement && !Array.from(el.options).some((o) => o.value === value)) return;
+      el.value = value;
+      filled.push(label);
+    };
+    put("name", "name", s.name);
+    put("brand", "brand", s.brand);
+    put("size", "size", s.size);
+    put("categoryId", "category", s.categoryId === null ? null : String(s.categoryId));
+    put("condition", "condition", s.condition);
+    return filled;
+  }
+
   return (
-    <form action={action} className="space-y-4">
+    <form ref={formRef} action={action} className="space-y-4">
       {edit && <input type="hidden" name="id" value={values.id} />}
-      <PhotoPicker initialUrl={values.photoUrl} />
+      <PhotoPicker initialUrl={values.photoUrl} onPhoto={setPhotoBlob} />
+      {!edit && aiOffered && <AiSuggest photo={photoBlob} onApply={applySuggestion} />}
 
       <div data-tour={edit ? undefined : "add-item"}>
         <label className="label" htmlFor="name">What is it?</label>

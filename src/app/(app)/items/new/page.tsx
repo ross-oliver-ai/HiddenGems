@@ -5,14 +5,16 @@ import { requireWritableUser } from "@/lib/auth";
 import { todayLondon } from "@/lib/format";
 import { lastShopName } from "@/lib/queries";
 import { ItemForm } from "@/components/ItemForm";
+import { aiOffered } from "@/lib/ai-service";
 
 export default async function NewItemPage({ searchParams }: { searchParams: Promise<{ added?: string }> }) {
   const user = await requireWritableUser();
   const { added } = await searchParams;
-  const [shopRows, catRows, last] = await Promise.all([
+  const [shopRows, catRows, last, aiOn] = await Promise.all([
     db.select({ name: shops.name }).from(shops).where(and(eq(shops.userId, user.id), eq(shops.archived, false))).orderBy(asc(shops.name)),
     db.select({ id: categories.id, name: categories.name }).from(categories).where(and(eq(categories.userId, user.id), eq(categories.archived, false))).orderBy(asc(categories.name)),
     lastShopName(user.id),
+    aiOffered(),
   ]);
   return (
     <div className="space-y-4">
@@ -25,6 +27,7 @@ export default async function NewItemPage({ searchParams }: { searchParams: Prom
           values={{ boughtAt: todayLondon(), shop: last }}
           shops={shopRows.map((s) => s.name)}
           categories={catRows}
+          aiOffered={aiOn}
         />
       </div>
     </div>
