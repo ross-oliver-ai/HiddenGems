@@ -319,3 +319,38 @@ export const jobRuns = pgTable("job_runs", {
   error: text("error"), // scrubbed message when ok is false
   runCount: integer("run_count").notNull().default(1),
 });
+
+/**
+ * Global switches the admin controls from the app. A single row (id 1); when it doesn't exist yet the code uses
+ * the defaults in src/lib/ai-rules.ts, so nothing needs seeding. Today it holds the "Suggest details from photo" settings.
+ */
+export const appSettings = pgTable("app_settings", {
+  id: integer("id").primaryKey().default(1),
+  aiEnabled: boolean("ai_enabled").notNull().default(false),
+  aiModel: text("ai_model").notNull().default("claude-haiku-5-5"),
+  aiMonthlyLimitPerUser: integer("ai_monthly_limit_per_user").notNull().default(200),
+  aiMonthlyBudgetPounds: integer("ai_monthly_budget_pounds").notNull().default(10),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * One row per "Suggest details from photo" request that reached the AI: who, which model, how many tokens, and the
+ * estimated cost in millionths of a US dollar. Used for each account's monthly limit, the admin's spend ceiling and
+ * the usage figures. No photo and no suggestion is kept here. Deleted with the account.
+ */
+export const aiUsage = pgTable(
+  "ai_usage",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    model: text("model").notNull(),
+    inputTokens: integer("input_tokens").notNull().default(0),
+    outputTokens: integer("output_tokens").notNull().default(0),
+    costMicroUsd: integer("cost_micro_usd").notNull().default(0),
+    ok: boolean("ok").notNull().default(true), // false when the AI answered but the reply couldn't be used
+  },
+  (t) => [index("ai_usage_user_month_idx").on(t.userId, t.createdAt), index("ai_usage_created_idx").on(t.createdAt)],
+);

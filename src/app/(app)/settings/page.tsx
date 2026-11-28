@@ -118,6 +118,10 @@ export default async function SettingsPage() {
             Waitlist
             <span aria-hidden className="text-primary">→</span>
           </Link>
+          <Link href="/admin/ai" className="card flex items-center justify-between font-extrabold">
+            AI photo fill
+            <span aria-hidden className="text-primary">→</span>
+          </Link>
           <section className="card space-y-2">
             <h2 className="font-extrabold">Database</h2>
             <UpdateDatabase pending={await pendingMigrations()} />
