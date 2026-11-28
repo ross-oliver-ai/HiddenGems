@@ -142,6 +142,8 @@ export const items = pgTable(
     condition: text("condition"),
     notes: text("notes"),
     photoUrl: text("photo_url"),
+    // True while the AI filled in details after the item was saved and the seller hasn't checked them yet (the "Check details" worklist).
+    aiCheck: boolean("ai_check").notNull().default(false),
     categoryId: integer("category_id").references(() => categories.id, { onDelete: "set null" }),
     status: itemStatusEnum("status").notNull().default("bought"),
 

@@ -14,7 +14,7 @@ import { ItemForm } from "@/components/ItemForm";
 import { PhotoViewer } from "@/components/PhotoViewer";
 import { PlatformPicker } from "@/components/PlatformPicker";
 import { SellFields } from "@/components/SellFields";
-import { deleteItemAction } from "../actions";
+import { deleteItemAction, markCheckedAction } from "../actions";
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -105,6 +105,13 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
           <h1 className="text-xl font-extrabold leading-tight">{item.name}</h1>
           <StatusPill status={s} />
         </div>
+        {item.aiCheck && (
+          <form action={markCheckedAction} className="space-y-2 rounded-xl bg-primary-soft px-3 py-2 text-sm font-bold text-primary" data-ai-check>
+            <input type="hidden" name="id" value={item.id} />
+            <p>✨ The AI filled in some details after you saved. Please check them (use Edit details below to change anything).</p>
+            <button type="submit" className="btn-soft">Looks right</button>
+          </form>
+        )}
         {stale && item.listedAt && (
           <p className="rounded-xl bg-warning/15 px-3 py-2 text-sm font-bold text-warning">
             Listed for {daysBetween(item.listedAt)} days. Time for a price drop?

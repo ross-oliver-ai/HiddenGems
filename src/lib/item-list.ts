@@ -11,6 +11,8 @@ export type ItemListInput = {
   show: number;
   /** Defaults to newest added first */
   order?: ItemOrder;
+  /** Only items the AI filled in after saving that haven't been checked yet */
+  check?: boolean;
 };
 
 /** The ORDER BY for each ordering. Dates that are missing go last, and ties fall back to newest added so the order is always stable. */
@@ -25,9 +27,10 @@ function orderBy(order: ItemOrder): SQL[] {
 }
 
 /** The first `show` items (in the chosen order) matching the filter and search, plus how many match in total (so the page can say "Showing 50 of 212") */
-export async function itemList({ userId, statuses, term, show, order = "newest" }: ItemListInput) {
+export async function itemList({ userId, statuses, term, show, order = "newest", check = false }: ItemListInput) {
   const conds: SQL[] = [eq(items.userId, userId)];
   if (statuses) conds.push(inArray(items.status, statuses));
+  if (check) conds.push(eq(items.aiCheck, true));
   if (term) {
     const like = `%${term.replace(/[%_\\]/g, "\\$&")}%`;
     conds.push(or(ilike(items.name, like), ilike(items.brand, like), ilike(shops.name, like))!);
@@ -48,4 +51,10 @@ export async function itemList({ userId, statuses, term, show, order = "newest" 
     db.select({ total: count() }).from(items).leftJoin(shops, eq(items.shopId, shops.id)).where(where),
   ]);
   return { rows, total };
+}
+
+/** How many items are waiting on a "Check details" (the AI filled them in after saving and they haven't been checked). */
+export async function checkCount(userId: number): Promise<number> {
+  const [{ n }] = await db.select({ n: count() }).from(items).where(and(eq(items.userId, userId), eq(items.aiCheck, true)));
+  return n;
 }

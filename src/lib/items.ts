@@ -29,7 +29,7 @@ export const CONDITIONS = ["New with tags", "New without tags", "Very good", "Go
 export type ItemOrder = "newest" | "sold" | "listed" | "waiting";
 
 /** Filter chips on the items page */
-export const FILTERS: { id: string; label: string; statuses: ItemStatus[] | null; order: ItemOrder }[] = [
+export const FILTERS: { id: string; label: string; statuses: ItemStatus[] | null; order: ItemOrder; /** Only items the AI filled in after saving that haven't been checked yet. This chip only shows while there are some. */ check?: boolean }[] = [
   { id: "all", label: "All", statuses: null, order: "newest" },
   { id: "stock", label: "In stock", statuses: ["bought", "listed"], order: "newest" },
   { id: "bought", label: "To list", statuses: ["bought"], order: "newest" },
@@ -38,6 +38,7 @@ export const FILTERS: { id: string; label: string; statuses: ItemStatus[] | null
   { id: "waiting", label: "Waiting for money", statuses: ["posted"], order: "waiting" },
   { id: "sold", label: "Sold", statuses: ["sold", "posted", "completed"], order: "sold" },
   { id: "other", label: "Returned / unsold", statuses: ["returned", "unsold", "donated"], order: "newest" },
+  { id: "check", label: "Check details", statuses: null, order: "newest", check: true },
 ];
 
 const SOLD_STATUSES: ItemStatus[] = ["sold", "posted", "completed"];

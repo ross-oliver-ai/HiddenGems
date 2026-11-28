@@ -17,7 +17,7 @@ export default async function AdminAiPage() {
       <div>
         <Link href="/settings" className="text-sm font-bold text-primary">← Settings</Link>
         <h1 className="mt-1 text-2xl font-extrabold tracking-tight">AI photo fill</h1>
-        <p className="text-sm text-muted">&ldquo;Suggest details from photo&rdquo; on Add item. It suggests a name, brand, size, category and condition from a photo; the seller checks and saves.</p>
+        <p className="text-sm text-muted">On Add item, the AI reads the item photo (and an optional tag photo) by itself and fills in the name, brand, size, category and condition. The seller checks and saves. If they save before it finishes, it finishes afterwards and the item is flagged &ldquo;Check details&rdquo;.</p>
       </div>
 
       <section className="card space-y-1" data-ai-status={live ? "on" : "off"}>

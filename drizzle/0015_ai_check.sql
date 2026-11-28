@@ -1,0 +1,1 @@
+ALTER TABLE "items" ADD COLUMN "ai_check" boolean DEFAULT false NOT NULL;

@@ -44,7 +44,7 @@ export default function PrivacyPage() {
       <section className="space-y-2">
         <h2 className="text-lg font-extrabold">Suggesting details from a photo</h2>
         <p>
-          When &ldquo;Suggest details from photo&rdquo; is switched on and you tap it, the photo of your item (and a photo of its tag, if you add one) is sent to Anthropic, the company behind the Claude AI, which reads it and suggests a name, brand, size, category and condition. They handle it under their own terms and privacy policy. We don&apos;t keep the tag photo, and we don&apos;t keep the suggestion unless you save it as part of your item. We keep only a count of how many suggestions each account has used and what they cost. Please don&apos;t photograph people or anything private.
+          When AI photo fill is switched on, the photo of your item (and a photo of its tag, if you add one) is sent to Anthropic, the company behind the Claude AI, as soon as you add it on the Add item screen. It reads the photo and suggests a name, brand, size, category and condition. If you save before it has finished, our server sends the saved item photo (and the tag photo you added) to finish the job, and the item is marked &ldquo;Check details&rdquo; until you have looked it over. Anthropic handles the photos under their own terms and privacy policy. We don&apos;t keep the tag photo, and we don&apos;t keep the suggestions unless you save them as part of your item. We keep only a count of how many suggestions each account has used and what they cost. Please don&apos;t photograph people or anything private.
         </p>
       </section>
 

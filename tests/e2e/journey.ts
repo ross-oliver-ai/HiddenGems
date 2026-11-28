@@ -551,6 +551,73 @@ async function main() {
     check("...and warns when it hasn't run for over a day", (await ad.page.locator("[data-daily-job]").getAttribute("data-daily-job")) === "overdue" && (await ad.page.locator("[data-daily-job]").innerText()).includes("longer ago than it should be"));
     await ad.ctx.close();
 
+    // --- AI photo fill on Add item. The AI and the photo upload are faked in the browser, so the real AI is never called.
+    // (The app itself must be started with ANTHROPIC_API_KEY set to any value, or the AI parts of Add item stay hidden.)
+    const aiUser = await mk("aifill@example.com", 20);
+    await pool.query("insert into app_settings (id, ai_enabled) values (1, true) on conflict (id) do update set ai_enabled = true");
+    const shoesId = (await pool.query("select id from categories where user_id=$1 and name='Shoes'", [aiUser.id])).rows[0].id as number;
+    const ai = await signIn("aifill@example.com");
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+    const calls: number[] = [];
+    let slow = 700;
+    await ai.page.route("**/api/upload", (r) => r.fulfill({ json: { url: "https://e2e.public.blob.vercel-storage.com/items/1/e2e.jpg" } }));
+    await ai.page.route("**/api/ai/suggest", async (route) => {
+      const withTag = (route.request().postDataBuffer()?.toString("latin1") ?? "").includes('name="tag"');
+      calls.push(withTag ? 2 : 1);
+      await new Promise((r) => setTimeout(r, slow));
+      await route.fulfill({
+        json: { suggestion: withTag
+          ? { name: "Black Moschino Jeans corduroy jacket", brand: "Moschino Jeans", size: "UK 10", categoryId: shoesId, condition: "Very good" }
+          : { name: "Black corduroy jacket", brand: null, size: null, categoryId: shoesId, condition: "Very good" } },
+      });
+    });
+    const photo = (n: number) => ai.page.locator("input[type=file]").nth(n).setInputFiles({ name: "p.png", mimeType: "image/png", buffer: png });
+    await ai.page.goto(`${BASE}/items/new`);
+    check("with AI on, Add item has an Item tile and a Tag tile side by side", (await ai.page.locator("[data-tag-tile]").count()) === 1 && (await ai.page.locator("button[aria-label='Add item photo']").count()) === 1);
+    await ai.page.click("[data-price-buttons] button:has-text('£5')");
+    check("a quick price button fills the price", (await ai.page.inputValue("#buyPrice")) === "5.00");
+    await photo(0);
+    await ai.page.waitForFunction(() => document.querySelector("[data-ai-suggest]")?.textContent?.includes("Filled in"), null, { timeout: 15_000 });
+    check("adding the item photo starts the AI by itself and fills the name, category and condition", (await ai.page.inputValue("#name")) === "Black corduroy jacket" && (await ai.page.inputValue("#categoryId")) === String(shoesId) && (await ai.page.inputValue("#condition")) === "Very good" && calls.join() === "1", `${await ai.page.inputValue("#name")} ${calls}`);
+    await photo(1);
+    await ai.page.waitForFunction(() => document.querySelector("#size") && (document.querySelector("#size") as HTMLInputElement).value === "UK 10", null, { timeout: 15_000 });
+    check("adding the tag photo runs it again and fills brand and size, improving what the AI itself had put there", calls.join() === "1,2" && (await ai.page.inputValue("#brand")) === "Moschino Jeans" && (await ai.page.inputValue("#name")) === "Black Moschino Jeans corduroy jacket", `${calls}`);
+    await ai.page.click("button[type=submit]:has-text('Save item')");
+    await ai.page.waitForURL(/\/items\/\d+$/, { timeout: 30_000 });
+    const filledRow = (await pool.query("select name, brand, size, ai_check from items where user_id=$1", [aiUser.id])).rows[0];
+    check("saving after the AI has finished keeps its answers and doesn't flag the item", filledRow.name === "Black Moschino Jeans corduroy jacket" && filledRow.size === "UK 10" && filledRow.ai_check === false, JSON.stringify(filledRow));
+
+    // typed values are never overwritten
+    await ai.page.goto(`${BASE}/items/new`);
+    await ai.page.fill("#buyPrice", "3");
+    await photo(0);
+    await ai.page.fill("#name", "My own name");
+    await ai.page.waitForFunction(() => document.querySelector("[data-ai-suggest]")?.textContent?.includes("Filled in"), null, { timeout: 15_000 });
+    check("a name typed while the AI is working is kept", (await ai.page.inputValue("#name")) === "My own name" && (await ai.page.inputValue("#condition")) === "Very good");
+
+    // saving before the AI has finished: saved at once as "Untitled item", flagged Check details
+    slow = 4000;
+    await ai.page.goto(`${BASE}/items/new`);
+    await ai.page.fill("#buyPrice", "2");
+    await photo(0);
+    await ai.page.waitForSelector("[data-ai-working='1']");
+    await ai.page.click("button[type=submit]:has-text('Save item')");
+    await ai.page.waitForURL(/\/items\/\d+$/, { timeout: 30_000 });
+    const early = (await pool.query("select id, name, ai_check from items where user_id=$1 and buy_price=2", [aiUser.id])).rows[0];
+    check("saving while the AI is still reading saves at once, with no name needed, flagged Check details", early && early.name === "Untitled item" && early.ai_check === true, JSON.stringify(early));
+    await ai.page.locator("[data-ai-check]").waitFor({ timeout: 10_000 }).catch(() => {});
+    check("the item page says the AI filled it in and offers 'Looks right'", (await ai.page.locator("[data-ai-check]").count()) === 1);
+    await ai.page.goto(`${BASE}/items`);
+    check("Items shows a Check details chip with the count, and the item carries the badge", (await body(ai.page)).includes("Check details (1)") && (await ai.page.locator("li:has-text('Untitled item')").innerText()).includes("Check details"));
+    await ai.page.goto(`${BASE}/items?f=check`);
+    check("the Check details list shows only the flagged item", (await ai.page.locator("ul li").count()) === 1 && (await body(ai.page)).includes("Untitled item"));
+    await ai.page.goto(`${BASE}/items/${early.id}`);
+    await ai.page.click("[data-ai-check] button:has-text('Looks right')");
+    await ai.page.waitForTimeout(1500);
+    check("'Looks right' takes it off the list", (await pool.query("select ai_check from items where id=$1", [early.id])).rows[0].ai_check === false && (await ai.page.locator("[data-ai-check]").count()) === 0);
+    await ai.ctx.close();
+    await pool.query("update app_settings set ai_enabled = false where id = 1");
+
     // --- Signed out ---
     const anon = await browser.newContext(phone); const ap = await anon.newPage();
     await ap.goto(`${BASE}/items`); await ap.waitForLoadState();

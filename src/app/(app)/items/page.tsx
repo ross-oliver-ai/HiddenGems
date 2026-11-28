@@ -9,24 +9,24 @@ import { StatusPill } from "@/components/StatusPill";
 import { SearchBox } from "@/components/SearchBox";
 import { SendList } from "@/components/SendList";
 import { toSendGroups } from "@/lib/to-send";
-import { itemList } from "@/lib/item-list";
+import { checkCount, itemList } from "@/lib/item-list";
 import { timed } from "@/lib/timing";
 import { TimingReadout } from "@/components/TimingReadout";
 
 type Params = { f?: string; q?: string; n?: string; timing?: string };
 
 /** The filter chips wrap onto a second row so none are hidden off-screen */
-function FilterChips({ active, term }: { active: string; term: string }) {
+function FilterChips({ active, term, checks }: { active: string; term: string; checks: number }) {
   const href = (id: string) => `/items?f=${id}${term ? `&q=${encodeURIComponent(term)}` : ""}`;
   return (
     <div className="flex flex-wrap gap-2">
-      {FILTERS.map((x) => (
+      {FILTERS.filter((x) => !x.check || checks > 0 || x.id === active).map((x) => (
         <Link
           key={x.id}
           href={href(x.id)}
           className={`rounded-full px-4 py-2 text-sm font-bold ${x.id === active ? "bg-primary text-primary-contrast" : "bg-surface-2 text-muted"}`}
         >
-          {x.label}
+          {x.label}{x.check && checks > 0 ? ` (${checks})` : ""}
         </Link>
       ))}
     </div>
@@ -46,6 +46,8 @@ export default async function ItemsPage({ searchParams }: { searchParams: Promis
     await timed("Database round trip 2", () => db.execute(sql`select 1`));
   }
 
+  const checks = await checkCount(user.id);
+
   // "To send" is a grouped worklist rather than the usual list of cards
   if (filter.id === "send") {
     const groups = await toSendGroups(user.id, todayLondon(), term);
@@ -53,13 +55,13 @@ export default async function ItemsPage({ searchParams }: { searchParams: Promis
       <div className="space-y-4">
         <h1 className="text-2xl font-extrabold tracking-tight">Items</h1>
         <SearchBox initial={term} filter={filter.id} />
-        <FilterChips active={filter.id} term={term} />
+        <FilterChips active={filter.id} term={term} checks={checks} />
         <SendList groups={groups} />
       </div>
     );
   }
 
-  const { rows, total } = await timed("Items and count", () => itemList({ userId: user.id, statuses: filter.statuses, term, show, order: filter.order }));
+  const { rows, total } = await timed("Items and count", () => itemList({ userId: user.id, statuses: filter.statuses, term, show, order: filter.order, check: filter.check }));
 
   // Live platforms for the listed items on this page
   const listedIds = rows.filter((r) => r.item.status === "listed").map((r) => r.item.id);
@@ -80,7 +82,7 @@ export default async function ItemsPage({ searchParams }: { searchParams: Promis
 
       <SearchBox initial={term} filter={filter.id} />
 
-      <FilterChips active={filter.id} term={term} />
+      <FilterChips active={filter.id} term={term} checks={checks} />
 
       {rows.length === 0 ? (
         <div className="card space-y-3 text-center">
@@ -122,6 +124,9 @@ export default async function ItemsPage({ searchParams }: { searchParams: Promis
                         <span className={`font-extrabold ${profit >= 0 ? "text-success" : "text-danger"}`}>
                           {profit >= 0 ? "+" : "−"}{money(Math.abs(profit))}
                         </span>
+                      )}
+                      {item.aiCheck && (
+                        <span className="rounded-full bg-primary-soft px-2 py-0.5 text-xs font-extrabold text-primary">✨ Check details</span>
                       )}
                       {item.status === "posted" && item.postedAt && (
                         <span className="rounded-full bg-warning/15 px-2 py-0.5 text-xs font-extrabold text-warning">

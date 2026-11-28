@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { and, eq, sql } from "drizzle-orm";
 import { del } from "@vercel/blob";
 import { db } from "@/db";
@@ -10,6 +11,11 @@ import { requireWritableUser } from "@/lib/auth";
 import { parseMoney, parseOptionalMoney, todayLondon } from "@/lib/format";
 import { CONDITIONS } from "@/lib/items";
 import { cleanUrl, editListings, isHandover, type ListingEdit } from "@/lib/listings";
+import { blobPhotoUrl } from "@/lib/photo-url";
+import { readImageFile } from "@/lib/ai-image";
+import { fillItemInBackground } from "@/lib/ai-background";
+import { UNTITLED_NAME } from "@/lib/ai-rules";
+import { aiOffered } from "@/lib/ai-service";
 
 export type ItemState = { error?: string };
 
@@ -38,10 +44,7 @@ async function shopIdFor(userId: number, name: string | null): Promise<number | 
   return created.id;
 }
 
-function safePhoto(v: FormDataEntryValue | null): string | null {
-  const s = String(v ?? "").trim();
-  return /^https:\/\/[a-z0-9.-]+\.public\.blob\.vercel-storage\.com\//i.test(s) ? s : null;
-}
+const safePhoto = (v: FormDataEntryValue | null) => blobPhotoUrl(v);
 
 async function removeBlob(url: string | null | undefined) {
   if (!url || (!process.env.BLOB_READ_WRITE_TOKEN && !process.env.BLOB_STORE_ID)) return;
@@ -54,9 +57,14 @@ async function removeBlob(url: string | null | undefined) {
 
 export async function createItemAction(_prev: ItemState, formData: FormData): Promise<ItemState> {
   const user = await requireWritableUser();
-  const name = str(formData.get("name"), 120);
+  const typedName = str(formData.get("name"), 120);
   const buyPrice = parseMoney(formData.get("buyPrice"));
   const boughtAt = date(formData.get("boughtAt"));
+  const photoUrl = safePhoto(formData.get("photoUrl"));
+
+  // Saved while the AI was still reading the photo: save now, and let the AI finish the details afterwards (flagged "Check details").
+  const finishWithAi = formData.get("aiPending") === "1" && photoUrl !== null && (await aiOffered());
+  const name = typedName ?? (finishWithAi ? UNTITLED_NAME : null);
   if (!name) return { error: "Give the item a name." };
   if (buyPrice === null) return { error: "Enter what you paid (0 if it was free)." };
   if (!boughtAt) return { error: "Choose the date you bought it." };
@@ -78,10 +86,16 @@ export async function createItemAction(_prev: ItemState, formData: FormData): Pr
       size: str(formData.get("size"), 30),
       condition: condition && CONDITIONS.includes(condition) ? condition : null,
       notes: str(formData.get("notes"), 500),
-      photoUrl: safePhoto(formData.get("photoUrl")),
+      photoUrl,
+      aiCheck: finishWithAi,
       status: "bought",
     })
     .returning({ id: items.id });
+
+  if (finishWithAi) {
+    const tag = await readImageFile(formData.get("aiTag"));
+    after(() => fillItemInBackground({ userId: user.id, itemId: created.id, tag: tag === "bad" ? null : tag }));
+  }
 
   revalidatePath("/items");
   revalidatePath("/");
@@ -114,6 +128,7 @@ export async function updateItemAction(_prev: ItemState, formData: FormData): Pr
     condition: condition && CONDITIONS.includes(condition) ? condition : null,
     notes: str(formData.get("notes"), 500),
     photoUrl: safePhoto(formData.get("photoUrl")),
+    aiCheck: false, // saving the details counts as checking them
     updatedAt: new Date(),
   };
 
@@ -175,4 +190,14 @@ export async function deleteItemAction(formData: FormData) {
   revalidatePath("/items");
   revalidatePath("/");
   redirect("/items");
+}
+
+/** "Looks right" on an item the AI filled in after saving: takes it off the Check details list. */
+export async function markCheckedAction(formData: FormData) {
+  const user = await requireWritableUser();
+  const id = Number(formData.get("id"));
+  if (!Number.isInteger(id)) return;
+  await db.update(items).set({ aiCheck: false }).where(and(eq(items.id, id), eq(items.userId, user.id)));
+  revalidatePath("/items");
+  revalidatePath(`/items/${id}`);
 }
